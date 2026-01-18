@@ -1,0 +1,92 @@
+Rahul Gandham
+Hyderabad,IN| https://www.linkedin.com/in/rahul-gandham-2157841ab/ | +91-7036771268 |
+gandhamrahul11082000@gmail.com |
+Professional Summary
+Passionate Python Application Developer with over 3 of experience in developing and deploying scalable applications.
+Proven ability to tackle complex business challenges using critical thinking and a broad range of tools and technologies.
+Skilled in data analytics, object-oriented programming, and advanced database management. Adept at collaborating
+within teams, delegating tasks, and maintaining high standards of ethics, professionalism and work efficiency.
+Education
+Sri Chandrasekharendra Saraswathi Viswa Mahavidyalaya Tamilnadu, India
+Bachelor of Engineering in Computer Science - CGPA: 9.3 June 2018 – May 2022
+Technical Skills
+Languages: Python, Ruby, SQL (Postgres, MySQL), Oracle, SQLAlchemy, HTML/CSS
+Frameworks: Flask, Django, RestAPI, FastAPI Web Scraping: BeautifulSoup, Selenium
+Developer Tools: Docker, VS Code, Visual Studio, PyCharm, AWS, Celery, Linux, Postman, Kubernetes
+Big Data Technologies: Hive, Sqoop, PySpark, Power BI, Databricks Source Control: GitHub, BitBucket
+Message Brokers & Caching: Redis, RabbitMQ
+Experience
+Foundation-AI Hyderabad,India
+Software Development Engineer June 2023 – Present
+• Drove the development of customer-centric features using Python, Flask, FastAPI, REST APIs, and PostgreSQL,
+resulting in significant enhancements in user experience, system performance, and overall application robustness.
+• Developed the Outlook integration with our product using the Graph API, greatly enhancing user accessibility and
+reducing manual efforts by 20%, thereby boosting overall operational efficiency and streamlining workflows.
+• Implemented integration solutions with major legal platforms, utilizing webhooks for seamless upstream and
+downstream file ingestion, expanding interoperability and streamlining legal document workflows.
+• Developed and optimized APIs for frontend and backend, fixed critical bugs, created a new dashboard, and
+scheduled emails for reports, demonstrating a commitment to a robust, interactive UI and improved performance.
+• Designed and implemented a Role-Based Access Control (RBAC) system using Python/Flask, featuring dynamic
+permission mapping via database-driven feature authorization, supporting multi-tenant environments, and reducing
+security incidents by effectively controlling granular access to sensitive features.
+• Led the development of new features and contributed to penetration testing by addressing vulnerabilities,
+collaborating with cross-functional teams to align customer needs and enhance product security and integrity.
+• Demonstrated a commitment to software reliability by achieving 95% test code coverage, ensuring thorough testing
+and validation of our product’s functionality, ultimately contributing to its robustness and reliability.
+• Revolutionized data pipeline infrastructure by migrating Airflow from Docker to Kubernetes and replacing shell
+scripts with Python operators for DAGs. Implemented parallelism and resource management, allowing the
+definition of specific resources required for each DAG. These changes reduced system downtime by over 95%, cut
+execution time by 70%, and decreased DAG execution times from over 16 hours to just 4 hours
+• Optimized the Upstream service by implementing memory profilers and context managers, successfully eliminating
+memory leaks and substantially improving application stability and performance.
+• Designed and implemented API-level caching for frequently accessed endpoints, resulting in reduced latency and
+improved response times for critical application services.
+• Engineered an automated solution for handling email attachments exceeding 29MB, eliminating notification failures
+and reducing manual intervention efforts by 85%.
+• Transformed the mapping info table from hardcoded to fully configurable, enabling dynamic API endpoint and field
+configurations for scalable, customer-specific data integrations.
+• Implemented a centralized email service to track and manage all outgoing emails, enabling configurable templates,
+subjects, and messages for each use case, ensuring a unified system for email generation and delivery.
+Omniwyse Technologies Pvt Ltd Hyderabad, India
+Software Development Engineer August 2022 – June 2023
+• Spearheaded a transformative document automation solution that reduced manual efforts by 90% for over thousands
+of electrical transformers, leading to substantial improvements in operational efficiency and overall productivity.
+• Converted client requirements into automated Word document generation, boosting delivery efficiency.
+• Directed cross-functional teams to integrate Python code into the high-impact TDMS project, resulting in a 25%
+boost in project delivery efficiency and greatly streamlining development workflows.
+• Engineered an innovative document automation system using Python, Flask, Python-docx, Matplotlib, and
+Postgres, cutting manual document generation time by 80% and boosting team productivity.
+• Implemented robust testing and quality assurance using Pytest, ensuring 85% code coverage and the reliability and
+performance of the document automation system, while facilitating seamless deployment and maintenance.
+• Enhanced the document automation system through robust error handling and customizable templates with
+dynamic data visualization using Python-docx and Matplotlib, resulting in 70% faster issue resolution and flexible
+report generation tailored to diverse client requirements.
+Futurense Technologies Private Limited Bangalore, India
+Data Engineer Intern January 2022 – July 2022
+• Implemented SCD Type 1 logic to enhance data storage, improving accuracy and data management significantly.
+• Orchestrated Hive data pipelines with partitioning, ensuring precision and a notable increase in efficiency.
+• Developed closed-loop processes to export Hive data to SQL, ensuring comprehensive and accurate reconciliation.
+• Designed and maintained ETL processes for seamless data integration, boosting data availability and analysis.
+• Conducted performance tuning of data workflows, resulting in faster processing times and reduced system load.
+Personal Projects
+Triplance - Tour Planning Web Application | Python (Flask), PostgreSQL, Google Maps API, Yelp API
+• Currently developing a web application to help users plan personalized trips by generating detailed itineraries based
+on their preferences such as destination, duration, starting point, and budget.
+• Key features include: day-by-day itinerary creation, multiple destination support, trip duration setting, basic
+budget planning, and destination info including popular attractions, weather forecasts, and local tips.
+• Integrated useful travel tools such as a simple packing checklist, expense calculator, distance calculator, and
+timezone converter to enhance user experience.
+• Implemented user features like saving trip plans, basic trip sharing, itinerary printing, and simple trip notes for
+better trip organization.
+• Using external APIs such as Google Maps (location services), Yelp (business recommendations), and OpenWeather
+(weather forecasts) to enhance functionality.
+• Currently working on AI-powered trip planning to suggest customized activity schedules, matching
+accommodations, and restaurant recommendations based on user preferences.
+• Frontend built with React.js for a responsive and interactive UI; Backend powered by Python (Flask) and
+PostgreSQL for smooth data handling and storage.
+WyseKPI | Python, Django-Rest-Framework, MySQL, Git
+• Led the design of robust database schema, showcasing expertise in Python, Django-Rest-Framework, MySQL, Git.
+• Streamlined monthly performance reviews, cutting manual data processing by 70% and boosting efficiency.
+• Provided a clear overview of employee performance, supporting informed decisions on promotions and raises.
+• Worked with cross-functional teams to convert complex requirements into solutions, improving delivery by 15%.
+• Promoted continuous improvement by implementing feedback and optimizing workflows for better results.

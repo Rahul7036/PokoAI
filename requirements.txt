@@ -1,0 +1,16 @@
+google-cloud-speech>=2.36.0
+sounddevice>=0.4.8
+numpy>=1.25.0
+fastapi
+uvicorn
+websockets
+python-dotenv
+huggingface_hub
+pypdf
+python-multipart
+sqlalchemy
+psycopg2-binary
+passlib[bcrypt]
+python-jose[cryptography]
+google-auth
+requests

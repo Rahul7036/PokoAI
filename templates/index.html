@@ -1,0 +1,1822 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PokoAI - Your Real-Time Interview Copilot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #020617;
+            --glass-bg: rgba(15, 23, 42, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-glow: #8b5cf6;
+            --accent-cyan: #06b6d4;
+            --success: #10b981;
+            --danger: #ef4444;
+            --nav-height: 80px;
+            --radar-glow: rgba(34, 211, 238, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+        }
+
+        h1,
+        h2,
+        h3,
+        .logo {
+            font-family: 'Outfit', sans-serif;
+        }
+
+        /* --- ANIMATED BACKGROUND --- */
+        .animated-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            background: radial-gradient(circle at 15% 50%, rgba(76, 29, 149, 0.15), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(6, 182, 212, 0.15), transparent 25%);
+            filter: blur(60px);
+            animation: bgShift 15s ease-in-out infinite alternate;
+        }
+
+        @keyframes bgShift {
+            0% {
+                transform: scale(1) translate(0, 0);
+            }
+
+            50% {
+                transform: scale(1.1) translate(-2%, 2%);
+            }
+
+            100% {
+                transform: scale(1) translate(0, 0);
+            }
+        }
+
+        .floating {
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translateY(0px);
+            }
+
+            50% {
+                transform: translateY(-20px);
+            }
+
+            100% {
+                transform: translateY(0px);
+            }
+        }
+
+        .neon-text {
+            text-shadow: 0 0 10px rgba(34, 211, 238, 0.5), 0 0 20px rgba(34, 211, 238, 0.3);
+        }
+
+        .glass-card-hover {
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .glass-card-hover:hover {
+            transform: translateY(-15px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(139, 92, 246, 0.2);
+            border-color: var(--accent-cyan);
+        }
+
+        .glass-card-hover:active {
+            transform: translateY(-5px) scale(0.98);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        /* --- GLASS --- */
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+        }
+
+        /* --- BUTTONS --- */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-glow), var(--accent-cyan));
+            border: none;
+            padding: 14px 28px;
+            color: white;
+            border-radius: 12px;
+            font-weight: 600;
+            font-family: 'Outfit', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(139, 92, 246, 0.5);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0) scale(0.98);
+            box-shadow: 0 2px 10px rgba(139, 92, 246, 0.2);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--glass-border);
+            color: white;
+            padding: 14px 28px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-family: 'Outfit', sans-serif;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-outline:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: white;
+        }
+
+        .btn-outline:active {
+            transform: scale(0.98);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* --- VIEWS --- */
+        .view {
+            display: none;
+            width: 100%;
+            height: 100vh;
+            /* Lock to viewport height */
+            flex-direction: column;
+            animation: fadeIn 0.5s ease-out;
+            overflow: hidden;
+            /* Prevent body scroll */
+            position: relative;
+        }
+
+        .view.active {
+            display: flex;
+        }
+
+        #landing-view,
+        #resume-review-view {
+            height: auto;
+            min-height: 100vh;
+            overflow: visible;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* --- DASHBOARD LAYOUT --- */
+        .dash-container {
+            display: flex;
+            min-height: 100vh;
+            width: 100%;
+        }
+
+        .dash-sidebar {
+            width: 280px;
+            border-right: 1px solid var(--glass-border);
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            position: fixed;
+            height: 100vh;
+            z-index: 100;
+        }
+
+        .dash-main {
+            flex: 1;
+            margin-left: 280px;
+            padding: 3rem;
+            max-width: 1200px;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .dash-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .dash-nav-item {
+            padding: 1rem;
+            border-radius: 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            transition: all 0.3s;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .dash-nav-item:hover,
+        .dash-nav-item.active {
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+        }
+
+        .dash-nav-item.active {
+            border-left: 3px solid var(--accent-cyan);
+            background: linear-gradient(to right, rgba(6, 182, 212, 0.1), transparent);
+        }
+
+        .dash-card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .dash-hero {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(6, 182, 212, 0.1));
+            padding: 3rem;
+            border-radius: 24px;
+            border: 1px solid var(--glass-border);
+            margin-bottom: 3rem;
+        }
+
+        .dash-stat-row {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .dash-stat-pill {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.5rem 1.2rem;
+            border-radius: 100px;
+            font-size: 0.85rem;
+            border: 1px solid var(--glass-border);
+            color: var(--text-secondary);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* --- LANDING SECTIONS --- */
+        .section-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 4rem 2rem;
+            width: 100%;
+        }
+
+        .section-title {
+            font-size: 3rem;
+            margin-bottom: 3rem;
+            text-align: center;
+            letter-spacing: -1px;
+        }
+
+        .feature-card {
+            padding: 2.5rem;
+            transition: all 0.3s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+            border-color: var(--accent-cyan);
+            box-shadow: 0 10px 30px rgba(6, 182, 212, 0.1);
+        }
+
+        .feature-card .status {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 4px 12px;
+            border-radius: 20px;
+            align-self: flex-start;
+        }
+
+        .status.live {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        .status.soon {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+            border: 1px solid var(--glass-border);
+        }
+
+        .feature-list {
+            list-style: none;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .feature-list li::before {
+            content: "✓";
+            color: var(--accent-cyan);
+            margin-right: 10px;
+            font-weight: bold;
+        }
+
+        .pricing-card {
+            padding: 3rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .pricing-card.popular {
+            border-color: var(--accent-glow);
+            box-shadow: 0 0 30px rgba(139, 92, 246, 0.15);
+        }
+
+        .pricing-card.popular::after {
+            content: "Most Popular";
+            position: absolute;
+            top: 20px;
+            right: -30px;
+            background: var(--accent-glow);
+            color: white;
+            padding: 5px 40px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            transform: rotate(45deg);
+        }
+
+        .price {
+            font-size: 3.5rem;
+            font-weight: 800;
+            margin: 1.5rem 0;
+            font-family: 'Outfit';
+        }
+
+        .price span {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        /* --- OVERLAYS --- */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(2, 6, 23, 0.95);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .modal-card {
+            width: 100%;
+            max-width: 500px;
+            padding: 3rem;
+            text-align: center;
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            color: white;
+            font-family: inherit;
+        }
+
+        /* Dashboard & App styling */
+        .app-header {
+            height: 70px;
+            padding: 0 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--glass-border);
+            background: rgba(2, 6, 23, 0.8);
+            backdrop-filter: blur(10px);
+        }
+
+        .dash-card {
+            padding: 2.5rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .dash-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent-cyan);
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2.5rem;
+            padding: 2rem;
+            flex: 1;
+            overflow: hidden;
+            height: calc(100vh - 170px);
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Mission Command Radar Background */
+        #app-view {
+            position: relative;
+        }
+
+        #app-view::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image:
+                linear-gradient(var(--radar-glow) 1px, transparent 1px),
+                linear-gradient(90deg, var(--radar-glow) 1px, transparent 1px);
+            background-size: 50px 50px;
+            background-position: center;
+            opacity: 0.15;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        #app-view::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 800px;
+            height: 800px;
+            background: radial-gradient(circle, var(--radar-glow) 0%, transparent 70%);
+            transform: translate(-50%, -50%);
+            opacity: 0.05;
+            animation: radar-pulse 6s infinite ease-out;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        @keyframes radar-pulse {
+            0% {
+                transform: translate(-50%, -50%) scale(0.4);
+                opacity: 0;
+            }
+
+            50% {
+                opacity: 0.15;
+            }
+
+            100% {
+                transform: translate(-50%, -50%) scale(1.6);
+                opacity: 0;
+            }
+        }
+
+        /* Voice Waveform Animation */
+        .waveform {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            height: 40px;
+            padding: 0 1rem;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .waveform.active {
+            opacity: 1;
+        }
+
+        .bar {
+            width: 3px;
+            height: 8px;
+            background: var(--accent-cyan);
+            border-radius: 4px;
+            animation: wave 1s infinite ease-in-out;
+        }
+
+        .bar:nth-child(2) {
+            animation-delay: 0.1s;
+        }
+
+        .bar:nth-child(3) {
+            animation-delay: 0.2s;
+        }
+
+        .bar:nth-child(4) {
+            animation-delay: 0.3s;
+        }
+
+        .bar:nth-child(5) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes wave {
+
+            0%,
+            100% {
+                height: 8px;
+                background: var(--accent-cyan);
+            }
+
+            50% {
+                height: 24px;
+                background: var(--accent-purple);
+            }
+        }
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            height: 100%;
+        }
+
+        .scroll-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding-bottom: 3rem;
+            /* Extra space at bottom */
+        }
+
+        /* --- COPILOT COMPONENTS --- */
+        .bubble {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            padding: 1rem 1.5rem;
+            border-radius: 18px;
+            border-bottom-left-radius: 4px;
+            max-width: 85%;
+            font-size: 1rem;
+            line-height: 1.5;
+            align-self: flex-start;
+            animation: slideIn 0.3s ease-out;
+            color: var(--text-secondary);
+        }
+
+        .bubble.final {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .interim {
+            opacity: 0.6;
+            font-style: italic;
+        }
+
+        .ai-card {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(139, 92, 246, 0.1));
+            border: 1px solid rgba(6, 182, 212, 0.2);
+            padding: 2rem;
+            border-radius: 24px;
+            margin-bottom: 2rem;
+            animation: slideInLeft 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            line-height: 1.8;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .ai-card:hover {
+            border-color: var(--accent-cyan);
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(139, 92, 246, 0.2));
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(6, 182, 212, 0.15);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .scroll-area::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scroll-area::-webkit-scrollbar-thumb {
+            background: var(--glass-border);
+            border-radius: 10px;
+        }
+
+        .control-bar {
+            height: 100px;
+            background: linear-gradient(to top, var(--bg-dark), rgba(2, 6, 23, 0.8));
+            border-top: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3rem;
+            position: relative;
+            z-index: 1000;
+            backdrop-filter: blur(20px);
+        }
+
+        .btn-circle {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #10b981, #059669);
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-start:hover:not(:disabled) {
+            transform: scale(1.1);
+            box-shadow: 0 0 30px rgba(16, 185, 129, 0.6);
+        }
+
+        .btn-start:active {
+            transform: scale(0.95);
+        }
+
+        .btn-start:disabled {
+            background: #1e293b;
+            cursor: not-allowed;
+            opacity: 0.5;
+            box-shadow: none;
+        }
+
+        .btn-stop {
+            background: rgba(239, 68, 68, 0.1);
+            border: 2px solid var(--danger);
+            color: var(--danger);
+        }
+
+        .btn-stop:hover:not(:disabled) {
+            background: var(--danger);
+            color: white;
+            box-shadow: 0 0 30px rgba(239, 68, 68, 0.5);
+            transform: scale(1.1);
+        }
+
+        .btn-stop:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .pulse-listening {
+            width: 12px;
+            height: 12px;
+            background: var(--danger);
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 10px;
+            animation: pulse-red 1.5s infinite;
+        }
+
+        @keyframes pulse-red {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            }
+
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+            }
+
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+        }
+
+        .status.live.pulse {
+            animation: pulse-cyan 2s infinite;
+        }
+
+        @keyframes pulse-cyan {
+            0% {
+                box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(6, 182, 212, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(6, 182, 212, 0);
+            }
+        }
+
+        .live-pulse {
+            animation: live-blink 1.5s infinite;
+        }
+
+        @keyframes live-blink {
+            0% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.6;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        /* --- RESPONSIVE DESIGN --- */
+        @media (max-width: 1024px) {
+            .grid-container {
+                grid-template-columns: 1fr;
+                overflow-y: auto;
+                height: auto;
+                min-height: calc(100vh - 170px);
+            }
+
+            .panel {
+                height: 500px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            :root {
+                --nav-height: 70px;
+            }
+
+            /* Landing Page Header */
+            #landing-view header {
+                padding: 1rem !important;
+                flex-wrap: wrap;
+                gap: 1rem;
+            }
+
+            #landing-view nav {
+                display: none !important;
+                /* Hide links on mobile for simplicity */
+            }
+
+            /* Hero Section */
+            #landing-view h2 {
+                font-size: 2.5rem !important;
+            }
+
+            #landing-view p {
+                font-size: 1.1rem !important;
+            }
+
+            #landing-view .section-container {
+                padding: 3rem 1.5rem !important;
+            }
+
+            #landing-view div[style*="gap: 2rem"] {
+                flex-direction: column;
+                gap: 1rem !important;
+            }
+
+            #landing-view .btn-primary,
+            #landing-view .btn-outline {
+                width: 100%;
+                padding: 16px 30px !important;
+                font-size: 1rem !important;
+            }
+
+            /* Dashboard Layout */
+            .dash-sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+                border-right: none;
+                border-bottom: 1px solid var(--glass-border);
+                padding: 1.5rem;
+            }
+
+            .dash-main {
+                margin-left: 0;
+                padding: 1.5rem;
+                height: auto;
+            }
+
+            .dash-hero h1 {
+                font-size: 2.5rem !important;
+            }
+
+            .dash-stat-row {
+                flex-direction: column;
+                gap: 0.8rem;
+            }
+
+            .dash-nav {
+                flex-direction: row;
+                overflow-x: auto;
+                padding-bottom: 1rem;
+            }
+
+            .dash-nav-item {
+                white-space: nowrap;
+                padding: 0.8rem 1.2rem;
+            }
+
+            /* Copilot Layout */
+            .app-header {
+                padding: 0 1rem;
+            }
+
+            .control-bar {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 1.5rem;
+                padding: 1rem;
+                height: auto;
+                min-height: 100px;
+            }
+
+            /* Modals */
+            .modal-card {
+                padding: 2rem 1.5rem !important;
+                margin: 1rem;
+                max-height: 90vh;
+                overflow-y: auto;
+            }
+
+            .modal-card h2 {
+                font-size: 1.5rem !important;
+            }
+
+            /* Stat pills */
+            .dash-stat-pill {
+                width: 100%;
+                text-align: center;
+            }
+        }
+    </style>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+
+<body>
+    <div class="animated-bg"></div>
+
+    <!-- AUTH OVERLAYS -->
+    <div id="login-overlay" class="overlay hidden">
+        <div class="modal-card glass">
+            <h2 style="margin-bottom: 2rem; font-size: 2rem;">Welcome Back</h2>
+            <div id="g_id_onload"
+                data-client_id="595917889227-8js5rpugt95nnrvqjlbodobea128f86i.apps.googleusercontent.com"
+                data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
+            <div class="g_id_signin" data-type="standard" data-size="large" data-theme="filled_black"
+                data-text="sign_in_with" data-shape="rectangular" data-logo_alignment="left"></div>
+            <div style="margin: 2rem 0; color: var(--text-secondary);">OR</div>
+            <input type="text" id="email" placeholder="Email Address">
+            <input type="text" id="fullName" placeholder="Full Name" style="display: none; margin-top: 0.8rem;">
+            <input type="text" id="profession" placeholder="Profession (e.g., Software Engineer)"
+                style="display: none; margin-top: 0.8rem;">
+            <input type="password" id="password" placeholder="Password">
+
+            <div id="loginBtns" style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                <button class="btn-primary" style="width: 100%;" onclick="handleLogin()">Sign In</button>
+            </div>
+            <div id="signupBtns" style="display: none; gap: 1rem; margin-top: 1.5rem;">
+                <button class="btn-primary" style="width: 100%;" onclick="handleRegister()">Complete Signup</button>
+            </div>
+
+            <p id="authToggleText" style="margin-top: 1.5rem; color: var(--text-secondary); font-size: 0.85rem;">
+                New to PokoAI? <a href="javascript:void(0)" onclick="toggleAuthMode(true)"
+                    style="color: var(--accent-cyan); font-weight: 700; text-decoration: none;">Create an account</a>
+            </p>
+            <p id="loginError" style="color: var(--danger); margin-top: 1rem; font-size: 0.9rem;"></p>
+            <button class="btn-outline" style="margin-top: 1.5rem; width: 100%; border: none;"
+                onclick="closeLogin()">Cancel</button>
+        </div>
+    </div>
+
+    <!-- SETUP WIZARD -->
+    <div id="wizard-overlay" class="overlay hidden">
+        <div class="modal-card glass" style="max-width: 650px;">
+            <div id="step1" class="step">
+                <h3 style="font-size: 1.8rem; margin-bottom: 1rem;">Upload Your Resume</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 2rem;">We analyze your background to provide
+                    personalized interview answers.</p>
+                <input type="file" id="resumeInput" accept=".pdf">
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button class="btn-outline" style="flex: 1;"
+                        onclick="document.getElementById('wizard-overlay').classList.add('hidden')">Cancel</button>
+                    <button class="btn-primary" style="flex: 2;" onclick="nextStep(2)">Continue</button>
+                </div>
+            </div>
+            <div id="step2" class="step hidden">
+                <h3 style="font-size: 1.8rem; margin-bottom: 1rem;">Interview Details</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 1rem;">Tell us about the role and company.</p>
+                <input type="text" id="companyInput" placeholder="Company Name (e.g. Google, OpenAI)">
+                <textarea id="jdInput" style="height: 150px; margin-top: 1rem;"
+                    placeholder="Paste Job Description here..."></textarea>
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button class="btn-outline" style="flex: 1;" onclick="nextStep(1)">Back</button>
+                    <button id="finishBtn" class="btn-primary" style="flex: 2;" onclick="finishSetup()">Start Interview
+                        Copilot</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LIMIT REACHED OVERLAY -->
+    <div id="limit-overlay" class="overlay hidden">
+        <div class="modal-card glass" style="max-width: 500px; text-align: center; padding: 3rem;">
+            <div style="font-size: 4rem; margin-bottom: 1.5rem;">⏳</div>
+            <h3 style="font-size: 2rem; margin-bottom: 1rem;">Limit Reached</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 2rem;">You've used your 5 minutes of free Copilot
+                time. To extend your access or upgrade your plan, please contact the admin team.</p>
+
+            <div class="glass" style="padding: 1.5rem; margin-bottom: 2rem; border-color: var(--accent-cyan);">
+                <div style="font-weight: 700; color: var(--accent-cyan); margin-bottom: 0.5rem;">Contact for Extension:
+                </div>
+                <div style="font-size: 1.1rem; letter-spacing: 0.5px;">codecrafty@gmail.com</div>
+                <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem;">(Mention your account
+                    email)</div>
+            </div>
+
+            <button class="btn-primary" style="width: 100%;"
+                onclick="document.getElementById('limit-overlay').classList.add('hidden')">Close</button>
+        </div>
+    </div>
+
+    <!-- VIEW: LANDING -->
+    <div id="landing-view" class="view active">
+        <header
+            style="padding: 1.5rem 2rem; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; backdrop-filter: blur(10px); border-bottom: 1px solid var(--glass-border);">
+            <div class="logo" style="font-size: 1.8rem; font-weight: 800; cursor: pointer;"
+                onclick="showView('landing-view')">PokoAI</div>
+            <nav style="display: flex; gap: 2.5rem; align-items: center;">
+                <a href="#problem"
+                    style="color: var(--text-secondary); text-decoration: none; font-weight: 500; font-size: 0.95rem; transition: color 0.3s;"
+                    onmouseover="this.style.color='white'"
+                    onmouseout="this.style.color='var(--text-secondary)'">Problem</a>
+                <a href="#solution"
+                    style="color: var(--text-secondary); text-decoration: none; font-weight: 500; font-size: 0.95rem; transition: color 0.3s;"
+                    onmouseover="this.style.color='white'"
+                    onmouseout="this.style.color='var(--text-secondary)'">Solution</a>
+                <a href="#features"
+                    style="color: var(--text-secondary); text-decoration: none; font-weight: 500; font-size: 0.95rem; transition: color 0.3s;"
+                    onmouseover="this.style.color='white'"
+                    onmouseout="this.style.color='var(--text-secondary)'">Features</a>
+                <a href="#pricing"
+                    style="color: var(--text-secondary); text-decoration: none; font-weight: 500; font-size: 0.95rem; transition: color 0.3s;"
+                    onmouseover="this.style.color='white'"
+                    onmouseout="this.style.color='var(--text-secondary)'">Pricing</a>
+            </nav>
+            <div style="display: flex; gap: 1rem;">
+                <button onclick="openLogin()" class="btn-outline"
+                    style="padding: 10px 24px; border-radius: 12px; font-size: 0.9rem;">Sign In</button>
+                <button onclick="openLogin()" class="btn-primary"
+                    style="padding: 10px 24px; border-radius: 12px; font-size: 0.9rem;">Get Started</button>
+            </div>
+        </header>
+
+        <main>
+            <!-- Hero -->
+            <section class="section-container"
+                style="text-align: center; padding-top: 6rem; padding-bottom: 8rem; position: relative; overflow: hidden;">
+                <div
+                    style="position: absolute; top: 10%; left: 50%; transform: translateX(-50%); width: 600px; height: 600px; background: radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%); z-index: -1;">
+                </div>
+
+                <div class="floating"
+                    style="display: inline-block; margin-bottom: 1rem; background: rgba(34, 211, 238, 0.1); padding: 8px 16px; border-radius: 100px; border: 1px solid rgba(34, 211, 238, 0.3); color: var(--accent-cyan); font-size: 0.9rem; font-weight: 700; letter-spacing: 1px;">
+                    ✨ Poko AI
+                </div>
+
+                <h2
+                    style="font-size: 4.5rem; line-height: 1.1; margin-bottom: 2rem; letter-spacing: -2px; font-weight: 900;">
+                    Your Real-Time<br>
+                    <span
+                        style="background: linear-gradient(to right, #22d3ee, #8b5cf6, #fff); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;"
+                        class="neon-text">Interview Copilot</span>
+                </h2>
+
+                <p
+                    style="font-size: 1.8rem; color: var(--text-secondary); max-width: 850px; margin: 0 auto 4rem; line-height: 1.4; font-weight: 400;">
+                    Ace interviews with confidence.<br>
+                    Poko AI listens to live interviews, understands questions, and helps you respond intelligently — in
+                    real time.
+                </p>
+
+                <div style="display: flex; justify-content: center; gap: 2rem; margin-bottom: 6rem;">
+                    <button onclick="openLogin()" class="btn-primary"
+                        style="padding: 22px 60px; font-size: 1.4rem; border-radius: 16px;">
+                        Start Interview Copilot
+                    </button>
+                    <button onclick="openLogin()" class="btn-outline"
+                        style="padding: 22px 40px; font-size: 1.2rem; border-radius: 16px;">
+                        Try Resume Match
+                    </button>
+                </div>
+
+                <div
+                    style="display: flex; justify-content: center; gap: 4rem; color: var(--text-secondary); font-size: 1.1rem; border-top: 1px solid var(--glass-border); padding-top: 3rem; max-width: 900px; margin: 0 auto;">
+                    <div style="display: flex; align-items: center; gap: 0.8rem;"><span
+                            style="color: var(--accent-cyan); font-size: 1.5rem;">⭐</span> <strong>4.6 / 5</strong>
+                        rating</div>
+                    <div style="display: flex; align-items: center; gap: 0.8rem;"><span
+                            style="color: var(--accent-glow); font-size: 1.5rem;">🎤</span> <strong>46+</strong> real
+                        interviews assisted</div>
+                    <div style="display: flex; align-items: center; gap: 0.8rem;"><span
+                            style="color: var(--success); font-size: 1.5rem;">🔒</span> Privacy-first & discreet</div>
+                </div>
+            </section>
+
+            <!-- Problem Section -->
+            <section id="problem" class="section-container">
+                <h2 class="section-title">Why Candidates <span style="color: var(--danger);">Struggle</span>.</h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+                    <div class="glass glass-card-hover" style="padding: 2.5rem; border-radius: 24px;">
+                        <span style="font-size: 3rem;">😰</span>
+                        <h4 style="font-size: 1.4rem; margin: 1.5rem 0 1rem; font-weight:700;">Interview pressure</h4>
+                        <p style="color: var(--text-secondary);">Feeling the weight of high-stakes conversations.</p>
+                    </div>
+                    <div class="glass glass-card-hover" style="padding: 2.5rem; border-radius: 24px;">
+                        <span style="font-size: 3rem;">😶</span>
+                        <h4 style="font-size: 1.4rem; margin: 1.5rem 0 1rem; font-weight:700;">Losing clarity
+                            mid-conversation</h4>
+                        <p style="color: var(--text-secondary);">Mind going blank when you need to be sharp.</p>
+                    </div>
+                    <div class="glass glass-card-hover" style="padding: 2.5rem; border-radius: 24px;">
+                        <span style="font-size: 3rem;">🧠</span>
+                        <h4 style="font-size: 1.4rem; margin: 1.5rem 0 1rem; font-weight:700;">Forgetting answers you
+                            already know</h4>
+                        <p style="color: var(--text-secondary);">Struggling to recall your best prep on the spot.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Solution Section -->
+            <section id="solution" class="section-container"
+                style="background: rgba(6, 182, 212, 0.03); border-radius: 60px; margin-top: 4rem; border: 1px solid var(--glass-border); padding: 5rem 3rem;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6rem; align-items: center;">
+                    <div class="glass"
+                        style="padding: 4rem; border-color: var(--accent-cyan); border-radius: 40px; background: rgba(6, 182, 212, 0.05); position: relative;">
+                        <div
+                            style="position: absolute; top: -20px; left: 40px; background: var(--accent-cyan); color: black; padding: 6px 16px; border-radius: 4px; font-weight: 800; font-size: 0.8rem; letter-spacing: 1px;">
+                            THE SOLUTION</div>
+                        <h3 style="font-size: 2.8rem; margin-bottom: 2rem; line-height: 1.1;">Real-time AI Assistance
+                        </h3>
+                        <ul class="feature-list"
+                            style="display: flex; flex-direction: column; gap: 1.5rem; font-size: 1.1rem;">
+                            <li style="display: flex; align-items: center; gap: 1rem;">
+                                <div style="width:10px; height:10px; background:var(--accent-cyan); border-radius:50%;">
+                                </div> Real-time listening
+                            </li>
+                            <li style="display: flex; align-items: center; gap: 1rem;">
+                                <div style="width:10px; height:10px; background:var(--accent-cyan); border-radius:50%;">
+                                </div> Question detection
+                            </li>
+                            <li style="display: flex; align-items: center; gap: 1rem;">
+                                <div style="width:10px; height:10px; background:var(--accent-cyan); border-radius:50%;">
+                                </div> AI-generated responses
+                            </li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h2 style="font-size: 3.5rem; margin-bottom: 2rem; letter-spacing: -2px;">Ace the
+                            Interview,<br><span style="color: var(--accent-cyan);">Every Time.</span></h2>
+                        <p style="color: var(--text-secondary); font-size: 1.2rem; line-height: 1.6;">Poko AI acts as
+                            your silent partner, providing the clarity and confidence you need to succeed.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Features Grid -->
+            <section id="features" class="section-container">
+                <h2 class="section-title">Everything You Need to <span style="color: var(--accent-cyan);">Ace It</span>.
+                </h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 2.5rem;">
+                    <!-- Copilot -->
+                    <div class="glass feature-card glass-card-hover" style="border-radius: 32px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="font-size: 3rem;">🎧</div>
+                            <span class="status live">Status: Live</span>
+                        </div>
+                        <h3 style="font-size: 2rem; margin-top: 1rem;">Interview Copilot</h3>
+                        <p style="color: var(--text-secondary); font-size: 1.1rem;">Your silent assistant during
+                            interviews.</p>
+                        <ul class="feature-list" style="margin-top: 1.5rem;">
+                            <li>Listens to the conversation in real time</li>
+                            <li>Detects interviewer questions instantly</li>
+                            <li>Generates clear, role-relevant answers</li>
+                            <li>Designed to keep you calm under pressure</li>
+                        </ul>
+                        <button onclick="openLogin()" class="btn-primary" style="margin-top: auto; padding: 18px;">Start
+                            Interview Copilot</button>
+                    </div>
+
+                    <!-- Resume Match -->
+                    <div class="glass feature-card glass-card-hover" style="border-radius: 32px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="font-size: 3rem;">📄</div>
+                            <span class="status live">Status: Live</span>
+                        </div>
+                        <h3 style="font-size: 2rem; margin-top: 1rem;">Resume Match Score</h3>
+                        <p style="color: var(--text-secondary); font-size: 1.1rem;">Know your readiness before the
+                            interview starts.</p>
+                        <ul class="feature-list" style="margin-top: 1.5rem;">
+                            <li>Resume vs job description analysis</li>
+                            <li>Skill and keyword match score</li>
+                            <li>Actionable improvement insights</li>
+                        </ul>
+                        <button onclick="openLogin()" class="btn-outline" style="margin-top: auto; padding: 18px;">Try
+                            Resume Match</button>
+                    </div>
+
+                    <!-- Mock Interview -->
+                    <div class="glass feature-card glass-card-hover" style="opacity: 0.9; border-radius: 32px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="font-size: 3rem;">🎭</div>
+                            <span class="status soon">Status: Coming Soon</span>
+                        </div>
+                        <h3 style="font-size: 2rem; margin-top: 1rem;">Mock Interviews</h3>
+                        <p style="color: var(--text-secondary); font-size: 1.1rem;">Practice before it matters.</p>
+                        <ul class="feature-list" style="margin-top: 1.5rem;">
+                            <li>Role-specific mock interviews</li>
+                            <li>AI-generated questions</li>
+                            <li>Feedback on clarity and confidence</li>
+                        </ul>
+                        <button class="btn-outline" style="margin-top: auto; padding: 18px;"
+                            onclick="joinWaitlist('Mock Interviews')">Join Waitlist</button>
+                    </div>
+
+                    <!-- Stealth Mode -->
+                    <div class="glass feature-card glass-card-hover" style="opacity: 0.9; border-radius: 32px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="font-size: 3rem;">🕵️‍♂️</div>
+                            <span class="status soon">Status: Coming Soon</span>
+                        </div>
+                        <h3 style="font-size: 2rem; margin-top: 1rem;">Stealth Mode</h3>
+                        <p style="color: var(--text-secondary); font-size: 1.1rem;">Built to stay discreet.</p>
+                        <ul class="feature-list" style="margin-top: 1.5rem;">
+                            <li>Clean, minimal interface</li>
+                            <li>No audio output</li>
+                            <li>Designed for quiet, focused use</li>
+                        </ul>
+                        <button class="btn-outline" style="margin-top: auto; padding: 18px; border-style: dashed;"
+                            onclick="joinWaitlist('Stealth Mode')">Join Waitlist</button>
+                    </div>
+
+                    <!-- Privacy Section -->
+                    <div class="glass feature-card glass-card-hover" style="border-radius: 32px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div style="font-size: 3rem;">🔐</div>
+                            <span class="status live">Privacy & Trust</span>
+                        </div>
+                        <h3 style="font-size: 2rem; margin-top: 1rem;">Privacy You Can Trust</h3>
+                        <p style="color: var(--text-secondary); font-size: 1.1rem;">Your data security is our priority.
+                        </p>
+                        <ul class="feature-list" style="margin-top: 1.5rem;">
+                            <li>No interview recordings stored</li>
+                            <li>Secure, encrypted sessions</li>
+                            <li>You control when sessions start and end</li>
+                        </ul>
+                        <button class="btn-outline" style="margin-top: auto; padding: 18px;"
+                            onclick="joinWaitlist('Privacy Center')">Privacy Center</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Social Proof Section -->
+            <section class="section-container"
+                style="text-align: center; border-top: 1px solid var(--glass-border); padding-top: 6rem;">
+                <h2 class="section-title">Trusted by <span style="color: var(--accent-cyan);">Candidates</span> Globally
+                </h2>
+                <div style="display: flex; justify-content: center; gap: 6rem; margin-top: 2rem;">
+                    <div>
+                        <div style="font-size: 4rem; font-weight: 800; color: white;">4.6/5</div>
+                        <div style="color: var(--text-secondary); font-size: 1.1rem; margin-top: 0.5rem;">Average User
+                            Rating</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 4rem; font-weight: 800; color: white;">46+</div>
+                        <div style="color: var(--text-secondary); font-size: 1.1rem; margin-top: 0.5rem;">Real
+                            Interviews Assisted</div>
+                    </div>
+                </div>
+                <!-- Testimonial Placeholders -->
+                <div
+                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin-top: 6rem;">
+                    <div class="glass"
+                        style="padding: 2.5rem; border-radius: 24px; text-align: left; font-style: italic;">
+                        "Poko AI gave me the confidence I needed for my Senior Dev interview. The real-time hints were a
+                        lifesaver."
+                        <div style="margin-top: 1.5rem; font-style: normal; font-weight: 700;">— David K.</div>
+                    </div>
+                    <div class="glass"
+                        style="padding: 2.5rem; border-radius: 24px; text-align: left; font-style: italic;">
+                        "Completely discreet and incredibly accurate. I landed my dream job at a top tech company thanks
+                        to this."
+                        <div style="margin-top: 1.5rem; font-style: normal; font-weight: 700;">— Sarah J.</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Pricing Section -->
+            <section id="pricing" class="section-container"
+                style="border-top: 1px solid var(--glass-border); padding-top: 6rem;">
+                <h2 class="section-title">Simple & <span style="color: var(--accent-glow);">Honest</span> Pricing.</h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem;">
+                    <!-- Free -->
+                    <div class="glass pricing-card glass-card-hover" style="border-radius: 32px;">
+                        <h4 style="color: var(--success); font-size: 1.2rem; font-weight: 800; letter-spacing: 1px;">🟢
+                            Free</h4>
+                        <div class="price">$0</div>
+                        <ul class="feature-list" style="text-align: left; margin: 2rem 0; font-size: 1.1rem;">
+                            <li style="margin-bottom: 0.8rem;">First 5 minutes free</li>
+                            <li style="margin-bottom: 0.8rem;">Resume Match Score</li>
+                            <li style="margin-bottom: 0.8rem;">No card required</li>
+                        </ul>
+                        <button onclick="openLogin()" class="btn-outline" style="width: 100%; padding: 18px;">Get
+                            Started</button>
+                    </div>
+
+                    <!-- Single -->
+                    <div class="glass pricing-card popular glass-card-hover"
+                        style="border-radius: 32px; border-width: 2px;">
+                        <h4
+                            style="color: var(--accent-cyan); font-size: 1.2rem; font-weight: 800; letter-spacing: 1px;">
+                            🔵 Single Interview</h4>
+                        <div class="price">$5 <span>/ interview</span></div>
+                        <ul class="feature-list" style="text-align: left; margin: 2rem 0; font-size: 1.1rem;">
+                            <li style="margin-bottom: 0.8rem;">Up to 60 minutes</li>
+                            <li style="margin-bottom: 0.8rem;">Real-time Interview Copilot</li>
+                            <li style="margin-bottom: 0.8rem;">Resume Match included</li>
+                            <li style="margin-bottom: 0.8rem;">One-time payment</li>
+                        </ul>
+                        <button onclick="openLogin()" class="btn-primary" style="width: 100%; padding: 18px;">Buy
+                            Now</button>
+                    </div>
+
+                    <!-- Pro -->
+                    <div class="glass pricing-card glass-card-hover" style="border-radius: 32px;">
+                        <h4
+                            style="color: var(--accent-glow); font-size: 1.2rem; font-weight: 800; letter-spacing: 1px;">
+                            🟣 Pro (Coming Soon)</h4>
+                        <div class="price">$15 <span>/ month</span></div>
+                        <ul class="feature-list" style="text-align: left; margin: 2rem 0; font-size: 1.1rem;">
+                            <li style="margin-bottom: 0.8rem;">Unlimited interviews</li>
+                            <li style="margin-bottom: 0.8rem;">Mock Interviews</li>
+                            <li style="margin-bottom: 0.8rem;">Priority response speed</li>
+                            <li style="margin-bottom: 0.8rem;">Advanced answer tuning</li>
+                        </ul>
+                        <button class="btn-outline" style="width: 100%; opacity: 0.8;"
+                            onclick="joinWaitlist('Pro Plan')">Join Waitlist</button>
+                    </div>
+                </div>
+                <p style="text-align: center; color: var(--text-secondary); margin-top: 3rem;">Pricing is simple,
+                    transparent, and designed for real interview needs.</p>
+            </section>
+
+            <!-- Final CTA -->
+            <section class="section-container" style="text-align: center; padding-top: 2rem;">
+                <div class="glass"
+                    style="padding: 4rem 2rem; border-radius: 40px; background: linear-gradient(145deg, rgba(6, 182, 212, 0.1), rgba(139, 92, 246, 0.1));">
+                    <h2 style="font-size: 3.5rem; margin-bottom: 2rem;">Start Your Next Interview<br>with Confidence
+                    </h2>
+                    <p
+                        style="font-size: 1.4rem; color: var(--text-secondary); margin-bottom: 3rem; max-width: 700px; margin-left: auto; margin-right: auto;">
+                        Join 46+ candidates who turned their career goals into reality with Poko AI.</p>
+                    <button onclick="openLogin()" class="btn-primary" style="padding: 20px 60px; font-size: 1.3rem;">Get
+                        Started Now</button>
+                </div>
+            </section>
+        </main>
+
+        <footer
+            style="padding: 4rem 2rem; border-top: 1px solid var(--glass-border); text-align: center; color: var(--text-secondary);">
+            <div style="font-family: 'Outfit'; font-weight: 800; font-size: 1.5rem; color: white; margin-bottom: 1rem;">
+                PokoAI</div>
+            <p>© 2026 Poko AI - Real-time Interview Assistant. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <!-- VIEW: DASHBOARD -->
+    <div id="dashboard-view" class="view">
+        <div class="dash-container">
+            <!-- Sidebar -->
+            <aside class="dash-sidebar glass">
+                <div class="logo" style="font-size: 1.8rem; font-weight: 800; margin-bottom: 2rem;">PokoAI</div>
+                <nav class="dash-nav">
+                    <div class="dash-nav-item active" onclick="showView('dashboard-view')">
+                        <span>🏠</span> Dashboard
+                    </div>
+                    <div class="dash-nav-item" onclick="startApp()">
+                        <span>🎧</span> Copilot
+                    </div>
+                    <div class="dash-nav-item" onclick="showResumeReview()">
+                        <span>📄</span> Resume Matcher
+                    </div>
+                    <div class="dash-nav-item" style="opacity: 0.5; cursor: not-allowed;">
+                        <span>🎭</span> Mock Practice
+                    </div>
+                </nav>
+
+                <div style="margin-top: auto; padding-top: 2rem; border-top: 1px solid var(--glass-border);">
+                    <div class="dash-nav-item" onclick="logout()">
+                        <span>🚪</span> Sign Out
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="dash-main">
+                <header class="dash-hero">
+                    <h1 style="font-size: 3.5rem; letter-spacing: -2px; margin-bottom: 1rem;">Welcome back,<br><span
+                            id="userNameDisplay"
+                            style="background: linear-gradient(to right, var(--accent-cyan), #fff); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">Candidate</span>
+                    </h1>
+                    <p style="color: var(--text-secondary); font-size: 1.2rem; max-width: 600px;">Optimizing interview
+                        performance for <span id="userProfessionDisplay"
+                            style="color: var(--accent-cyan); font-weight: 600;">Professional</span>.</p>
+
+                    <div class="dash-stat-row">
+                        <div class="dash-stat-pill">Account: <span
+                                style="color: var(--success); font-weight: 700;">Free</span></div>
+                        <div class="dash-stat-pill">Credits: <span id="creditBadge"
+                                style="color: white; font-weight: 700;">...</span></div>
+                        <div class="dash-stat-pill">Sessions: <span style="color: white;">46+ Assisted</span></div>
+                    </div>
+                </header>
+
+                <div class="dash-card-grid">
+                    <!-- Copilot Card -->
+                    <div class="glass feature-card" onclick="startApp()" style="cursor: pointer;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-size: 2.5rem;">🎧</span>
+                            <span class="status live pulse">Ready</span>
+                        </div>
+                        <h3 style="font-size: 1.8rem;">Live Copilot</h3>
+                        <p style="color: var(--text-secondary);">Your real-time silent partner for ongoing interviews.
+                        </p>
+                        <button class="btn-primary" style="margin-top: 1rem; width: 100%;">Launch Assistant</button>
+                    </div>
+
+                    <!-- Resume Matcher Card -->
+                    <div class="glass feature-card" onclick="showResumeReview()" style="cursor: pointer;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-size: 2.5rem;">📄</span>
+                            <span class="status live">Analyze</span>
+                        </div>
+                        <h3 style="font-size: 1.8rem;">Resume Matcher</h3>
+                        <p style="color: var(--text-secondary);">Check how well your resume matches any job description.
+                        </p>
+                        <button class="btn-outline" style="margin-top: 1rem; width: 100%;">Open Matcher</button>
+                    </div>
+
+                    <!-- Mock Interview Card -->
+                    <div class="glass feature-card" style="opacity: 0.6; cursor: not-allowed;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-size: 2.5rem;">🎭</span>
+                            <span class="status soon">Coming Soon</span>
+                        </div>
+                        <h3 style="font-size: 1.8rem;">Mock Practice</h3>
+                        <p style="color: var(--text-secondary);">Practice with AI interviewers for any specific role.
+                        </p>
+                        <button class="btn-outline" style="margin-top: 1rem; width: 100%;" disabled>Locked</button>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- VIEW: APP -->
+    <div id="app-view" class="view">
+        <header class="app-header">
+            <div class="logo">PokoAI Copilot</div>
+            <button class="btn-outline" onclick="showView('dashboard-view')">Back</button>
+        </header>
+        <div class="grid-container">
+            <div class="panel">
+                <div
+                    style="padding: 1rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem; text-transform: uppercase;">
+                    Live Transcript</div>
+                <div id="transcript" class="scroll-area glass"></div>
+            </div>
+            <div class="panel">
+                <div
+                    style="padding: 1rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem; text-transform: uppercase;">
+                    AI Suggestions</div>
+                <div id="aiOutput" class="scroll-area glass"></div>
+            </div>
+        </div>
+        <div class="control-bar">
+            <div id="waveform" class="waveform">
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+            </div>
+            <button id="startBtn" class="btn-circle btn-start" title="Start Listening">▶</button>
+            <button id="stopBtn" class="btn-circle btn-stop" disabled title="Stop Session">■</button>
+            <div id="statusText"
+                style="color: var(--text-secondary); display: flex; align-items: center; min-width: 140px; font-weight: 500;">
+                <span id="listeningDot" class="hidden pulse-listening"></span>
+                <span id="statusLabel">Ready</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW: RESUME REVIEW -->
+    <div id="resume-review-view" class="view">
+        <header class="app-header">
+            <div class="logo">Resume Matcher</div>
+            <button class="btn-outline" onclick="showView('dashboard-view')">Back</button>
+        </header>
+        <div class="dashboard-container">
+            <div id="review-input-section" class="glass" style="padding: 3rem; max-width: 800px; margin: 0 auto;">
+                <h2 style="margin-bottom: 2rem;">Analysis Engine</h2>
+                <input type="file" id="reviewResumeInput" accept=".pdf">
+                <textarea id="reviewJdInput" style="height: 250px; margin-top: 1rem;"
+                    placeholder="Paste Job Description here..."></textarea>
+                <button id="analyzeBtn" class="btn-primary" style="margin-top: 2rem; width: 100%; padding: 20px;"
+                    onclick="analyzeResume()">Analyze Now</button>
+                <p id="analyzeError" style="color: var(--danger); margin-top: 1rem;"></p>
+            </div>
+            <div id="review-results-section" class="hidden glass"
+                style="padding: 4rem; max-width: 900px; margin: 0 auto; text-align: center;">
+                <div style="position: relative; width: 150px; height: 150px; margin: 0 auto 3rem;">
+                    <svg viewBox="0 0 36 36" style="width: 150px; height: 150px; transform: rotate(-90deg);">
+                        <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="2.5" />
+                        <path id="score-circle"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                            fill="none" stroke="var(--accent-cyan)" stroke-width="2.5" stroke-dasharray="0, 100" />
+                    </svg>
+                    <div id="score-text"
+                        style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2.5rem; font-weight: 800;">
+                        0</div>
+                </div>
+                <h2 style="font-size: 2.5rem;">Match Score</h2>
+                <ul id="suggestions-list"
+                    style="text-align: left; max-width: 600px; margin: 2rem auto; color: var(--text-secondary); line-height: 2;">
+                </ul>
+                <button class="btn-outline" style="margin-top: 2rem;" onclick="resetReview()">New Scan</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null, audioContext, processor, input, globalStream, heartbeatInterval;
+
+
+        function showView(viewId) {
+            // Auto-stop if leaving app-view
+            const currentView = document.querySelector('.view.active');
+            if (currentView && currentView.id === 'app-view' && viewId !== 'app-view') {
+                if (typeof forceStopApp === 'function') forceStopApp();
+            }
+
+            document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+            const target = document.getElementById(viewId);
+            if (target) {
+                target.classList.add('active');
+                if (viewId === 'landing-view' || viewId === 'resume-review-view') {
+                    document.body.style.overflow = 'auto';
+                } else {
+                    document.body.style.overflow = 'hidden';
+                }
+            }
+        }
+
+        function openLogin() { document.getElementById('login-overlay').classList.remove('hidden'); }
+        function closeLogin() { document.getElementById('login-overlay').classList.add('hidden'); }
+        function logout() { localStorage.removeItem('token'); window.location.reload(); }
+
+        function checkAuth() {
+            const token = localStorage.getItem('token');
+            if (token) { showView('dashboard-view'); updateCredits(); }
+            else showView('landing-view');
+        }
+
+        async function updateCredits() {
+            const token = localStorage.getItem('token');
+            if (!token) return 0;
+            try {
+                const res = await fetch('/api/user/status', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (res.status === 401) {
+                    console.warn("Session expired. Logging out.");
+                    localStorage.removeItem('token');
+                    showView('landing-view');
+                    return 0;
+                }
+
+                const data = await res.json();
+                if (res.ok) {
+                    const mins = Math.floor(data.remaining_seconds / 60);
+                    const secs = data.remaining_seconds % 60;
+                    const badge = document.getElementById('creditBadge');
+                    if (badge) badge.innerText = `${mins}m ${secs}s left`;
+
+                    if (document.getElementById('userNameDisplay')) {
+                        document.getElementById('userNameDisplay').innerText = data.full_name;
+                    }
+                    if (document.getElementById('userProfessionDisplay')) {
+                        document.getElementById('userProfessionDisplay').innerText = data.profession;
+                    }
+                    return data.remaining_seconds;
+                }
+            } catch (e) {
+                console.error("Status check failed", e);
+            }
+            return 300; // Grace period if server is momentarily unreachable
+        }
+
+
+        function toggleAuthMode(isSignup) {
+            document.getElementById('fullName').style.display = isSignup ? 'block' : 'none';
+            document.getElementById('profession').style.display = isSignup ? 'block' : 'none';
+            document.getElementById('loginBtns').style.display = isSignup ? 'none' : 'flex';
+            document.getElementById('signupBtns').style.display = isSignup ? 'flex' : 'none';
+            document.getElementById('authToggleText').innerHTML = isSignup ?
+                `Already have an account? <a href="javascript:void(0)" onclick="toggleAuthMode(false)" style="color: var(--accent-cyan); font-weight: 700; text-decoration: none;">Sign In</a>` :
+                `New to PokoAI? <a href="javascript:void(0)" onclick="toggleAuthMode(true)" style="color: var(--accent-cyan); font-weight: 700; text-decoration: none;">Create an account</a>`;
+            const h2 = document.querySelector('#login-overlay h2');
+            if (h2) h2.innerText = isSignup ? 'Join PokoAI Beta' : 'Welcome Back';
+        }
+
+        async function handleLogin() {
+            const email = document.getElementById('email').value, password = document.getElementById('password').value;
+            if (!email || !password) return;
+            try {
+                const res = await fetch('/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+                const data = await res.json();
+                if (res.ok) { localStorage.setItem('token', data.access_token); closeLogin(); checkAuth(); }
+                else { document.getElementById('loginError').innerText = data.detail; }
+            } catch (e) { document.getElementById('loginError').innerText = "Login Failed"; }
+        }
+
+        async function handleRegister() {
+            const email = document.getElementById('email').value, password = document.getElementById('password').value;
+            const fullName = document.getElementById('fullName').value, profession = document.getElementById('profession').value;
+            if (!email || !password || !fullName || !profession) {
+                document.getElementById('loginError').innerText = "All profile fields are required";
+                return;
+            }
+            try {
+                const res = await fetch('/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, fullName, profession })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alert("Registration request submitted! Your account is pending manual approval. We'll check it soon.");
+                    toggleAuthMode(false); // Back to login
+                }
+                else { document.getElementById('loginError').innerText = data.detail; }
+            } catch (e) { document.getElementById('loginError').innerText = "Signup Failed"; }
+        }
+
+        async function handleCredentialResponse(resp) {
+            try {
+                const res = await fetch('/auth/google', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: resp.credential }) });
+                const data = await res.json();
+                if (res.ok) { localStorage.setItem('token', data.access_token); closeLogin(); checkAuth(); }
+            } catch (e) { console.error(e); }
+        }
+
+        function nextStep(step) {
+            document.querySelectorAll('.step').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`step${step}`).classList.remove('hidden');
+        }
+
+        async function finishSetup() {
+            const btn = document.getElementById('finishBtn'), resumeFile = document.getElementById('resumeInput').files[0];
+            const jd = document.getElementById('jdInput').value, company = document.getElementById('companyInput').value;
+            if (!resumeFile || !jd || !company) { alert("Missing fields."); return; }
+            btn.innerText = "Starting..."; btn.disabled = true;
+            try {
+                const fd = new FormData(); fd.append('resume_file', resumeFile); fd.append('jd', jd); fd.append('company', company);
+                await fetch('/update_context', { method: 'POST', body: fd });
+                document.getElementById('wizard-overlay').classList.add('hidden');
+                btn.innerText = "Start Interview Copilot"; btn.disabled = false;
+                showView('app-view');
+            } catch (e) { btn.disabled = false; btn.innerText = "Start Interview Copilot"; }
+        }
+
+        function startApp() { document.getElementById('wizard-overlay').classList.remove('hidden'); }
+
+        const startBtn = document.getElementById('startBtn'), stopBtn = document.getElementById('stopBtn');
+        const statusLabel = document.getElementById('statusLabel'), listeningDot = document.getElementById('listeningDot');
+        const transcriptDiv = document.getElementById('transcript'), aiOutputDiv = document.getElementById('aiOutput');
+
+        startBtn.addEventListener('click', async () => {
+            const remaining = await updateCredits();
+            if (remaining <= 0) {
+                document.getElementById('limit-overlay').classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const token = localStorage.getItem('token');
+                ws = new WebSocket(`${protocol}//${window.location.host}/ws?token=${token}`);
+
+                // Start Heartbeat
+                heartbeatInterval = setInterval(async () => {
+                    const token = localStorage.getItem('token');
+                    try {
+                        const res = await fetch('/api/heartbeat', {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+                        const data = await res.json();
+                        if (!res.ok) {
+                            forceStopApp();
+                            document.getElementById('limit-overlay').classList.remove('hidden');
+                        } else {
+                            const mins = Math.floor(data.remaining_seconds / 60);
+                            const secs = data.remaining_seconds % 60;
+                            document.getElementById('creditBadge').innerText = `${mins}m ${secs}s left`;
+
+                            // Update Personalization
+                            if (document.getElementById('userNameDisplay')) {
+                                document.getElementById('userNameDisplay').innerText = data.full_name;
+                            }
+                            if (document.getElementById('userProfessionDisplay')) {
+                                document.getElementById('userProfessionDisplay').innerText = data.profession;
+                            }
+                        }
+                    } catch (e) { console.error("Heartbeat failed"); }
+                }, 10000);
+
+                ws.onmessage = (e) => {
+                    const data = JSON.parse(e.data);
+                    if (data.type === 'transcript') updateTranscript(data.transcript, data.is_final);
+                    if (data.type === 'answer') addAiCard(data.question, data.answer);
+                };
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+                globalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                input = audioContext.createMediaStreamSource(globalStream);
+                processor = audioContext.createScriptProcessor(4096, 1, 1);
+                processor.onaudioprocess = (e) => {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        const inputData = e.inputBuffer.getChannelData(0);
+                        ws.send(floatTo16BitPCM(inputData));
+                    }
+                };
+                input.connect(processor); processor.connect(audioContext.destination);
+                statusLabel.innerText = "Listening...";
+                listeningDot.classList.remove('hidden');
+                document.getElementById('waveform').classList.add('active');
+                startBtn.disabled = true; stopBtn.disabled = false;
+            } catch (e) { alert("Mic error."); }
+        });
+
+        function forceStopApp() {
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            if (processor) { input.disconnect(); processor.disconnect(); }
+            if (globalStream) globalStream.getTracks().forEach(t => t.stop());
+            if (audioContext) audioContext.close();
+            if (ws) ws.close();
+            statusLabel.innerText = "Stopped";
+            listeningDot.classList.add('hidden');
+            document.getElementById('waveform').classList.remove('active');
+            startBtn.disabled = false; stopBtn.disabled = true;
+        }
+
+        stopBtn.addEventListener('click', forceStopApp);
+
+
+        let currentBubble = null;
+        function updateTranscript(text, isFinal) {
+            if (!currentBubble) { currentBubble = document.createElement('div'); currentBubble.className = 'bubble'; transcriptDiv.appendChild(currentBubble); }
+            currentBubble.innerHTML = `<span class="${isFinal ? '' : 'interim'}">${text}</span>`;
+            transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
+            if (isFinal) { currentBubble.classList.add('final'); currentBubble = null; }
+        }
+
+        function addAiCard(q, a) {
+            const card = document.createElement('div'); card.className = 'ai-card glass';
+            card.innerHTML = `<div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1rem;">
+                <span class="live-pulse" style="background:var(--accent-cyan); color:black; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:800;">LIVE ADVICE</span>
+                <div style="color: var(--accent-cyan); font-weight: 700; font-size: 1.1rem;">${q}</div>
+            </div>
+            <div class="ai-content" style="font-size: 1.05rem; letter-spacing:0.2px;">${marked.parse(a)}</div>`;
+            aiOutputDiv.prepend(card);
+        }
+
+        function floatTo16BitPCM(input) {
+            let output = new DataView(new ArrayBuffer(input.length * 2));
+            for (let i = 0; i < input.length; i++) {
+                let s = Math.max(-1, Math.min(1, input[i]));
+                s = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                output.setInt16(i * 2, s, true);
+            }
+            return output.buffer;
+        }
+
+        function showResumeReview() { showView('resume-review-view'); }
+        async function analyzeResume() {
+            const f = document.getElementById('reviewResumeInput').files[0], jd = document.getElementById('reviewJdInput').value;
+            if (!f || !jd) return;
+            try {
+                const fd = new FormData(); fd.append('resume', f); fd.append('job_description', jd);
+                const res = await fetch('/api/analyze-resume', { method: 'POST', body: fd });
+                const data = await res.json();
+                document.getElementById('review-input-section').classList.add('hidden');
+                document.getElementById('review-results-section').classList.remove('hidden');
+                document.getElementById('score-text').innerText = data.score;
+                document.getElementById('score-circle').setAttribute('stroke-dasharray', `${data.score}, 100`);
+                document.getElementById('suggestions-list').innerHTML = data.suggestions.map(s => `<li>${s}</li>`).join('');
+            } catch (e) { alert("Analysis failed."); }
+        }
+
+        function resetReview() { document.getElementById('review-results-section').classList.add('hidden'); document.getElementById('review-input-section').classList.remove('hidden'); }
+
+        function joinWaitlist(featureName) {
+            alert(`Thanks for your interest in ${featureName}! You've been added to our priority waitlist. ✨`);
+        }
+
+        window.onload = checkAuth;
+    </script>
+</body>
+
+</html>

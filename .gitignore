@@ -1,0 +1,31 @@
+# Secrets & Environment
+.env
+client_secret.json
+*.json
+!package.json
+!composer.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+ENV/
+env/
+.env/
+build/
+dist/
+*.egg-info/
+
+# Databases
+*.sqlite3
+*.db
+
+# OS & Editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
