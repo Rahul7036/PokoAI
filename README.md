@@ -96,6 +96,87 @@ A production-ready AI-powered interview assistant that listens to live interview
 
 ---
 
+## 🐳 Docker Deployment (Recommended)
+
+### Quick Start with Docker
+
+1. **Prerequisites**
+   - Docker Desktop installed
+   - Docker Compose installed
+   - Google Cloud service account JSON file
+
+2. **Setup**
+   ```bash
+   # Clone the repository
+   git clone <your-repo-url>
+   cd PokoAI
+
+   # Copy your Google service account JSON to credentials folder
+   mkdir credentials
+   cp /path/to/your-service-account.json credentials/service-account.json
+
+   # Copy and configure environment file
+   cp .env.docker .env
+   # Edit .env and add your API_KEY and other credentials
+   ```
+
+3. **Run with Docker Compose**
+   ```bash
+   # Build and start all services (app + PostgreSQL)
+   docker-compose up -d
+
+   # View logs
+   docker-compose logs -f web
+
+   # Stop services
+   docker-compose down
+   ```
+
+4. **Access the application**
+   - App: `http://localhost:8000`
+   - Database: `localhost:5432` (credentials in docker-compose.yml)
+
+5. **Run database migrations**
+   ```bash
+   # Execute migration inside the container
+   docker-compose exec web python migrate_db.py
+   ```
+
+### Manual Docker Build
+
+```bash
+# Build the image
+docker build -t pokoai:latest .
+
+# Run the container
+docker run -d \
+  -p 8000:8000 \
+  -e DB_STRING="your_db_string" \
+  -e API_KEY="your_api_key" \
+  -v $(pwd)/credentials:/app/credentials \
+  --name pokoai \
+  pokoai:latest
+```
+
+### Production Deployment
+
+For cloud deployment (GCP, AWS, Azure):
+
+```bash
+# Tag and push to container registry
+docker tag pokoai:latest gcr.io/your-project/pokoai:latest
+docker push gcr.io/your-project/pokoai:latest
+
+# Deploy to Cloud Run (GCP example)
+gcloud run deploy pokoai \
+  --image gcr.io/your-project/pokoai:latest \
+  --platform managed \
+  --region us-central1 \
+  --allow-unauthenticated
+```
+
+---
+
 ## 📂 Project Structure
 
 ```

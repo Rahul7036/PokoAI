@@ -18,18 +18,44 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Configure Vertex AI
-# We assume GOOGLE_APPLICATION_CREDENTIALS is set in .env
-project_id = "intrepid-honor-484608-e0" # Derived from your JSON file name
-location = "us-central1" # Standard default
+# Configure Google Cloud credentials from environment variables
+import json
+import tempfile
+from google.oauth2 import service_account
 
+project_id = os.getenv("GCP_PROJECT_ID", "intrepid-honor-484608-e0")
+location = "us-central1"
+
+# Construct service account credentials from env vars
+credentials_dict = {
+    "type": "service_account",
+    "project_id": os.getenv("GCP_PROJECT_ID"),
+    "private_key_id": os.getenv("GCP_PRIVATE_KEY_ID"),
+    "private_key": os.getenv("GCP_PRIVATE_KEY", "").replace("\\n", "\n"),  # Handle escaped newlines
+    "client_email": os.getenv("GCP_CLIENT_EMAIL"),
+    "client_id": os.getenv("GCP_CLIENT_ID"),
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    "client_x509_cert_url": f"https://www.googleapis.com/robot/v1/metadata/x509/{os.getenv('GCP_CLIENT_EMAIL', '').replace('@', '%40')}",
+    "universe_domain": "googleapis.com"
+}
+
+# Create credentials from dict
 try:
-    vertexai.init(project=project_id, location=location)
+    credentials = service_account.Credentials.from_service_account_info(credentials_dict)
+    
+    # Set credentials for Google Cloud clients
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = ""  # Clear any file-based credentials
+    
+    # Initialize Vertex AI with credentials
+    vertexai.init(project=project_id, location=location, credentials=credentials)
     model = GenerativeModel("gemini-2.0-flash-001")
-    logger.info("Vertex AI initialized successfully.")
+    logger.info("Vertex AI initialized successfully from environment variables.")
 except Exception as e:
     logger.error(f"Vertex AI Init Failed: {e}")
     model = None
+    credentials = None
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse
@@ -374,7 +400,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None, db: Sessio
         # Keep reconnecting until stopped
         while not stop_event.is_set():
             try:
-                client = speech.SpeechClient()
+                client = speech.SpeechClient(credentials=credentials)
                 config = speech.RecognitionConfig(
                     encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
                     sample_rate_hertz=RATE,
