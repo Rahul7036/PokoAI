@@ -14,3 +14,4 @@ passlib[bcrypt]
 python-jose[cryptography]
 google-auth
 requests
+vertexai
