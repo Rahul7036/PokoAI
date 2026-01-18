@@ -244,7 +244,7 @@ Proprietary - All rights reserved.
 ## 👨‍💻 Author
 
 **Poko AI Team**  
-For support or inquiries: codecrafty@gmail.com
+For support or inquiries: pokoai0206@gmail.com
 
 ---
 
