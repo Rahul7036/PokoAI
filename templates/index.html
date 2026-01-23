@@ -187,6 +187,7 @@
         }
 
         #landing-view,
+        #dashboard-view,
         #resume-review-view {
             height: auto;
             min-height: 100vh;
@@ -811,6 +812,10 @@
                 --nav-height: 70px;
             }
 
+            body {
+                overflow-y: auto !important;
+            }
+
             /* Ensure only active view is displayed */
             .view {
                 display: none !important;
@@ -821,9 +826,11 @@
             }
 
             #landing-view.active,
+            #dashboard-view.active,
             #resume-review-view.active {
                 display: flex !important;
                 overflow: visible !important;
+                height: auto !important;
             }
 
             /* Landing Page Header */
@@ -1005,44 +1012,94 @@
                 gap: 2rem !important;
             }
 
-            /* Dashboard Layout */
+            /* --- Dashboard Layout (Premium Mobile Fix) --- */
+            .dash-container {
+                flex-direction: column !important;
+                height: auto !important;
+                overflow-y: visible !important;
+            }
+
             .dash-sidebar {
-                width: 100%;
-                height: auto;
-                position: relative;
-                border-right: none;
-                border-bottom: 1px solid var(--glass-border);
-                padding: 1.5rem;
+                width: 100% !important;
+                height: auto !important;
+                position: relative !important;
+                border-right: none !important;
+                border-bottom: 1px solid var(--glass-border) !important;
+                padding: 1.5rem !important;
+                z-index: 10 !important;
+                background: rgba(10, 11, 30, 0.8) !important;
+                backdrop-filter: blur(15px) !important;
             }
 
-            .dash-main {
-                margin-left: 0;
-                padding: 1.5rem;
-                height: auto;
-            }
-
-            .dash-hero h1 {
-                font-size: 2.5rem !important;
-            }
-
-            .dash-stat-row {
-                flex-direction: column;
-                gap: 0.8rem;
+            .dash-sidebar .logo {
+                margin-bottom: 1rem !important;
+                text-align: left !important;
             }
 
             .dash-nav {
-                flex-direction: row;
-                overflow-x: auto;
-                padding-bottom: 1rem;
+                display: grid !important;
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 0.8rem !important;
+                flex-direction: unset !important;
+                overflow-x: visible !important;
+                padding-bottom: 0 !important;
             }
 
             .dash-nav-item {
-                white-space: nowrap;
-                padding: 0.8rem 1.2rem;
+                padding: 0.7rem 1rem !important;
+                font-size: 0.9rem !important;
+                justify-content: center !important;
+                background: rgba(255, 255, 255, 0.03) !important;
+                border: 1px solid rgba(255, 255, 255, 0.05) !important;
+            }
+
+            .dash-nav-item.active {
+                border-left: none !important;
+                border: 1px solid var(--accent-cyan) !important;
+            }
+
+            .dash-main {
+                margin-left: 0 !important;
+                padding: 1.5rem !important;
+                width: 100% !important;
+                height: auto !important;
+                overflow-y: visible !important;
+            }
+
+            .dash-hero {
+                padding: 2rem 1.5rem !important;
+                margin-bottom: 2rem !important;
+                border-radius: 20px !important;
+                text-align: center !important;
+            }
+
+            .dash-hero h1 {
+                font-size: 1.8rem !important;
+                letter-spacing: -1px !important;
+            }
+
+            .dash-hero p {
+                font-size: 0.95rem !important;
+                margin: 0 auto !important;
+            }
+
+            .dash-stat-row {
+                flex-direction: row !important;
+                flex-wrap: wrap !important;
+                justify-content: center !important;
+                gap: 0.6rem !important;
+                margin-top: 1.5rem !important;
+            }
+
+            .dash-stat-pill {
+                font-size: 0.75rem !important;
+                padding: 0.4rem 0.8rem !important;
+                width: auto !important;
             }
 
             .dash-card-grid {
                 grid-template-columns: 1fr !important;
+                gap: 1.2rem !important;
             }
 
             /* Copilot Layout - FIXED FOR MOBILE */
@@ -1147,11 +1204,11 @@
             <div class="g_id_signin" data-type="standard" data-size="large" data-theme="filled_black"
                 data-text="sign_in_with" data-shape="rectangular" data-logo_alignment="left"></div>
             <div style="margin: 2rem 0; color: var(--text-secondary);">OR</div>
-            <input type="text" id="email" placeholder="Email Address">
+            <input type="email" id="email" placeholder="Email Address" autocapitalize="none" autocorrect="off">
             <input type="text" id="fullName" placeholder="Full Name" style="display: none; margin-top: 0.8rem;">
             <input type="text" id="profession" placeholder="Profession (e.g., Software Engineer)"
                 style="display: none; margin-top: 0.8rem;">
-            <input type="password" id="password" placeholder="Password">
+            <input type="password" id="password" placeholder="Password" autocapitalize="none" autocorrect="off">
 
             <div id="loginBtns" style="display: flex; gap: 1rem; margin-top: 1.5rem;">
                 <button class="btn-primary" style="width: 100%;" onclick="handleLogin()">Sign In</button>
@@ -1787,7 +1844,7 @@
             const target = document.getElementById(viewId);
             if (target) {
                 target.classList.add('active');
-                if (viewId === 'landing-view' || viewId === 'resume-review-view') {
+                if (viewId === 'landing-view' || viewId === 'resume-review-view' || viewId === 'dashboard-view') {
                     document.body.style.overflow = 'auto';
                 } else {
                     document.body.style.overflow = 'hidden';
@@ -1858,11 +1915,26 @@
             const email = document.getElementById('email').value, password = document.getElementById('password').value;
             if (!email || !password) return;
             try {
-                const res = await fetch('/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+                console.log("Attempting login for:", email);
+                const res = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
                 const data = await res.json();
-                if (res.ok) { localStorage.setItem('token', data.access_token); closeLogin(); checkAuth(); }
-                else { document.getElementById('loginError').innerText = data.detail; }
-            } catch (e) { document.getElementById('loginError').innerText = "Login Failed"; }
+                if (res.ok) {
+                    localStorage.setItem('token', data.access_token);
+                    closeLogin();
+                    checkAuth();
+                }
+                else {
+                    console.error("Login rejected:", data.detail);
+                    document.getElementById('loginError').innerText = data.detail;
+                }
+            } catch (e) {
+                console.error("Network or catch error during login:", e);
+                document.getElementById('loginError').innerText = "Login Failed (Connection Error)";
+            }
         }
 
         async function handleRegister() {
