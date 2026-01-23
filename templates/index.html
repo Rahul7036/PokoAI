@@ -2126,14 +2126,6 @@
                             const mins = Math.floor(data.remaining_seconds / 60);
                             const secs = data.remaining_seconds % 60;
                             document.getElementById('creditBadge').innerText = `${mins}m ${secs}s left`;
-
-                            // Update Personalization
-                            if (document.getElementById('userNameDisplay')) {
-                                document.getElementById('userNameDisplay').innerText = data.full_name;
-                            }
-                            if (document.getElementById('userProfessionDisplay')) {
-                                document.getElementById('userProfessionDisplay').innerText = data.profession;
-                            }
                         }
                     } catch (e) { console.error("Heartbeat failed"); }
                 }, 10000);
