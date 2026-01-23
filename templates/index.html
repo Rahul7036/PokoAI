@@ -1249,6 +1249,7 @@
 
             .scroll-area {
                 padding: 1rem !important;
+                padding-top: 3rem !important;
                 border: none !important;
                 background: transparent !important;
             }
@@ -1267,35 +1268,47 @@
             }
 
             .app-header {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr !important;
+                grid-template-areas: "logo back" "controls controls" !important;
                 height: auto !important;
                 padding: 1rem !important;
-                flex-direction: column !important;
-                gap: 1rem !important;
-                position: relative !important;
+                gap: 0.8rem !important;
+                position: sticky !important;
+                top: 0;
+                background: rgba(2, 6, 23, 0.98) !important;
             }
 
-            .header-left,
+            .header-left {
+                grid-area: logo;
+                width: auto !important;
+                justify-content: flex-start !important;
+            }
+
             .header-right {
-                width: 100% !important;
-                justify-content: space-between !important;
-                flex: none !important;
+                grid-area: back;
+                width: auto !important;
+                justify-content: flex-end !important;
             }
 
             .header-center {
+                grid-area: controls;
                 width: 100% !important;
                 justify-content: center !important;
-                padding: 0.8rem !important;
+                padding: 0.6rem !important;
                 gap: 1rem !important;
+                background: rgba(255, 255, 255, 0.04) !important;
+                border: 1px solid var(--glass-border) !important;
+                border-radius: 16px !important;
             }
 
             .header-center .btn-circle {
-                width: 50px !important;
-                height: 50px !important;
+                width: 46px !important;
+                height: 46px !important;
             }
 
             .header-center .waveform {
                 display: none !important;
-                /* Hide waveform on ultra-compact mobile header if needed, or keep smaller */
             }
 
             .control-bar {
