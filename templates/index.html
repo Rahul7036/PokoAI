@@ -436,6 +436,28 @@
             font-family: inherit;
         }
 
+        .password-container {
+            position: relative;
+            width: 100%;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            user-select: none;
+            transition: color 0.2s;
+            z-index: 5;
+        }
+
+        .password-toggle:hover {
+            color: white;
+        }
+
         /* Dashboard & App styling */
         .app-header {
             height: 70px;
@@ -1208,7 +1230,10 @@
             <input type="text" id="fullName" placeholder="Full Name" style="display: none; margin-top: 0.8rem;">
             <input type="text" id="profession" placeholder="Profession (e.g., Software Engineer)"
                 style="display: none; margin-top: 0.8rem;">
-            <input type="password" id="password" placeholder="Password" autocapitalize="none" autocorrect="off">
+            <div class="password-container">
+                <input type="password" id="password" placeholder="Password" autocapitalize="none" autocorrect="off">
+                <span class="password-toggle" onclick="togglePasswordVisibility('password', this)">👁️</span>
+            </div>
 
             <div id="loginBtns" style="display: flex; gap: 1rem; margin-top: 1.5rem;">
                 <button class="btn-primary" style="width: 100%;" onclick="handleLogin()">Sign In</button>
@@ -1227,7 +1252,32 @@
         </div>
     </div>
 
-    <!-- SETUP WIZARD -->
+    <div id="change-password-overlay" class="overlay hidden">
+        <div class="modal-card glass">
+            <h2 style="margin-bottom: 2rem; font-size: 2rem;">Change Password</h2>
+            <div class="password-container">
+                <input type="password" id="oldPassword" placeholder="Current Password" autocapitalize="none"
+                    autocorrect="off">
+                <span class="password-toggle" onclick="togglePasswordVisibility('oldPassword', this)">👁️</span>
+            </div>
+            <div class="password-container">
+                <input type="password" id="newPassword" placeholder="New Password" autocapitalize="none"
+                    autocorrect="off">
+                <span class="password-toggle" onclick="togglePasswordVisibility('newPassword', this)">👁️</span>
+            </div>
+            <div class="password-container">
+                <input type="password" id="confirmNewPassword" placeholder="Confirm New Password" autocapitalize="none"
+                    autocorrect="off">
+                <span class="password-toggle" onclick="togglePasswordVisibility('confirmNewPassword', this)">👁️</span>
+            </div>
+
+            <button class="btn-primary" style="width: 100%; margin-top: 1.5rem;" onclick="handlePasswordChange()">Update
+                Password</button>
+            <p id="passwordError" style="color: var(--danger); margin-top: 1rem; font-size: 0.9rem;"></p>
+            <button class="btn-outline" style="margin-top: 1rem; width: 100%; border: none;"
+                onclick="document.getElementById('change-password-overlay').classList.add('hidden')">Cancel</button>
+        </div>
+    </div>
     <div id="wizard-overlay" class="overlay hidden">
         <div class="modal-card glass" style="max-width: 650px;">
             <div id="step1" class="step">
@@ -1685,6 +1735,10 @@
                 </nav>
 
                 <div style="margin-top: auto; padding-top: 2rem; border-top: 1px solid var(--glass-border);">
+                    <div class="dash-nav-item"
+                        onclick="document.getElementById('change-password-overlay').classList.remove('hidden')">
+                        <span>🔑</span> Change Password
+                    </div>
                     <div class="dash-nav-item" onclick="logout()">
                         <span>🚪</span> Sign Out
                     </div>
@@ -1852,6 +1906,17 @@
             }
         }
 
+        function togglePasswordVisibility(id, btn) {
+            const el = document.getElementById(id);
+            if (el.type === 'password') {
+                el.type = 'text';
+                btn.innerText = '👓';
+            } else {
+                el.type = 'password';
+                btn.innerText = '👁️';
+            }
+        }
+
         function openLogin() { document.getElementById('login-overlay').classList.remove('hidden'); }
         function closeLogin() { document.getElementById('login-overlay').classList.add('hidden'); }
         function logout() { localStorage.removeItem('token'); window.location.reload(); }
@@ -1934,6 +1999,49 @@
             } catch (e) {
                 console.error("Network or catch error during login:", e);
                 document.getElementById('loginError').innerText = "Login Failed (Connection Error)";
+            }
+        }
+
+        async function handlePasswordChange() {
+            const oldPassword = document.getElementById('oldPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmNewPassword = document.getElementById('confirmNewPassword').value;
+            const errorEl = document.getElementById('passwordError');
+            const token = localStorage.getItem('token');
+
+            if (!oldPassword || !newPassword || !confirmNewPassword) {
+                errorEl.innerText = "All fields are required";
+                return;
+            }
+
+            if (newPassword !== confirmNewPassword) {
+                errorEl.innerText = "New passwords do not match";
+                return;
+            }
+
+            try {
+                const res = await fetch('/auth/change-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ oldPassword, newPassword })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alert("Password updated successfully!");
+                    document.getElementById('change-password-overlay').classList.add('hidden');
+                    // Clear fields
+                    document.getElementById('oldPassword').value = '';
+                    document.getElementById('newPassword').value = '';
+                    document.getElementById('confirmNewPassword').value = '';
+                    errorEl.innerText = '';
+                } else {
+                    errorEl.innerText = data.detail || "Failed to update password";
+                }
+            } catch (e) {
+                errorEl.innerText = "Error updating password";
             }
         }
 

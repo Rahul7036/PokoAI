@@ -108,6 +108,10 @@ class UserRegister(BaseModel):
     fullName: str
     profession: str
 
+class PasswordChange(BaseModel):
+    oldPassword: str
+    newPassword: str
+
 class GoogleLogin(BaseModel):
     token: str
 
@@ -180,6 +184,18 @@ def google_auth(login: GoogleLogin, db: Session = Depends(get_db)):
 
     access_token = create_access_token(data={"sub": db_user.email})
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/auth/change-password")
+def change_password(data: PasswordChange, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not current_user.hashed_password:
+        raise HTTPException(status_code=400, detail="Cannot change password for Google-only accounts")
+    
+    if not verify_password(data.oldPassword, current_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Current password incorrect")
+    
+    current_user.hashed_password = get_password_hash(data.newPassword)
+    db.commit()
+    return {"status": "success", "message": "Password updated successfully"}
 
 # --- Usage/Credits API ---
 @app.get("/api/user/status")
