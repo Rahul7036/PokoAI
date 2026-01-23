@@ -2099,7 +2099,21 @@
             } catch (e) { btn.disabled = false; btn.innerText = "Start Interview Copilot"; }
         }
 
-        function startApp() { document.getElementById('wizard-overlay').classList.remove('hidden'); }
+        function startApp() {
+            // Reset wizard inputs
+            document.getElementById('resumeInput').value = '';
+            document.getElementById('companyInput').value = '';
+            document.getElementById('jdInput').value = '';
+
+            // Clear previous session data
+            document.getElementById('transcript').innerHTML = '';
+            document.getElementById('aiOutput').innerHTML = '';
+
+            // Reset to step 1
+            nextStep(1);
+
+            document.getElementById('wizard-overlay').classList.remove('hidden');
+        }
 
         const startBtn = document.getElementById('startBtn'), stopBtn = document.getElementById('stopBtn');
         const statusLabel = document.getElementById('statusLabel'), listeningDot = document.getElementById('listeningDot');
@@ -2203,7 +2217,10 @@
             return output.buffer;
         }
 
-        function showResumeReview() { showView('resume-review-view'); }
+        function showResumeReview() {
+            resetReview();
+            showView('resume-review-view');
+        }
         async function analyzeResume() {
             const f = document.getElementById('reviewResumeInput').files[0], jd = document.getElementById('reviewJdInput').value;
             if (!f || !jd) return;
@@ -2219,7 +2236,19 @@
             } catch (e) { alert("Analysis failed."); }
         }
 
-        function resetReview() { document.getElementById('review-results-section').classList.add('hidden'); document.getElementById('review-input-section').classList.remove('hidden'); }
+        function resetReview() {
+            // Clear inputs
+            document.getElementById('reviewResumeInput').value = '';
+            document.getElementById('reviewJdInput').value = '';
+
+            // Clear results
+            document.getElementById('score-text').innerText = '0';
+            document.getElementById('score-circle').setAttribute('stroke-dasharray', `0, 100`);
+            document.getElementById('suggestions-list').innerHTML = '';
+
+            document.getElementById('review-results-section').classList.add('hidden');
+            document.getElementById('review-input-section').classList.remove('hidden');
+        }
 
         function joinWaitlist(featureName) {
             alert(`Thanks for your interest in ${featureName}! You've been added to our priority waitlist. ✨`);
