@@ -1058,13 +1058,19 @@
                 text-align: left !important;
             }
 
-            .dash-nav {
+            .dash-nav,
+            .dash-footer {
                 display: grid !important;
                 grid-template-columns: repeat(2, 1fr) !important;
                 gap: 0.8rem !important;
                 flex-direction: unset !important;
                 overflow-x: visible !important;
                 padding-bottom: 0 !important;
+            }
+
+            .dash-footer {
+                margin-top: 1.5rem !important;
+                padding-top: 1.5rem !important;
             }
 
             .dash-nav-item {
@@ -1732,7 +1738,8 @@
                     </div>
                 </nav>
 
-                <div style="margin-top: auto; padding-top: 2rem; border-top: 1px solid var(--glass-border);">
+                <div class="dash-footer"
+                    style="margin-top: auto; padding-top: 2rem; border-top: 1px solid var(--glass-border);">
                     <div class="dash-nav-item"
                         onclick="document.getElementById('change-password-overlay').classList.remove('hidden')">
                         <span>🔑</span> Change Password
