@@ -94,7 +94,7 @@
         }
 
         .neon-text {
-            text-shadow: 0 0 10px rgba(34, 211, 238, 0.5), 0 0 20px rgba(34, 211, 238, 0.3);
+            text-shadow: 0 0 4px rgba(34, 211, 238, 0.15), 0 0 8px rgba(34, 211, 238, 0.1);
         }
 
         .glass-card-hover {
@@ -1107,19 +1107,48 @@
                 </div>
 
                 <h2
-                    style="font-size: 4.5rem; line-height: 1.1; margin-bottom: 2rem; letter-spacing: -2px; font-weight: 900;">
-                    Your Real-Time<br>
+                    style="font-size: 5rem; line-height: 1.05; margin-bottom: 2.5rem; letter-spacing: -2.5px; font-weight: 900;">
+                    <span style="color: var(--text-primary); display: block; margin-bottom: 0.5rem;">Your
+                        Real-Time</span>
                     <span
-                        style="background: linear-gradient(to right, #22d3ee, #8b5cf6, #fff); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;"
-                        class="neon-text">Interview Copilot</span>
+                        style="background: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 50%, #22d3ee 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; background-size: 200% auto; animation: shimmer 3s linear infinite; font-size: 5.5rem; display: inline-block;">Interview
+                        Copilot</span>
                 </h2>
 
+                <style>
+                    @keyframes shimmer {
+                        0% {
+                            background-position: 0% center;
+                        }
+
+                        100% {
+                            background-position: 200% center;
+                        }
+                    }
+                </style>
+
                 <p
-                    style="font-size: 1.8rem; color: var(--text-secondary); max-width: 850px; margin: 0 auto 4rem; line-height: 1.4; font-weight: 400;">
-                    Ace interviews with confidence.<br>
-                    Poko AI listens to live interviews, understands questions, and helps you respond intelligently — in
-                    real time.
+                    style="font-size: 1.85rem; color: var(--text-secondary); max-width: 900px; margin: 0 auto 2rem; line-height: 1.6; font-weight: 400;">
+                    <span style="color: #06b6d4; font-weight: 600;">Ace interviews</span> with confidence.<br>
+                    Poko AI <span style="color: white; font-weight: 500;">listens to live interviews</span>, understands
+                    questions, and helps you
+                    <span
+                        style="background: linear-gradient(to right, #06b6d4, #8b5cf6); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-weight: 600;">respond
+                        intelligently</span> — in real time.
                 </p>
+
+                <!-- FREE 20 MINUTES BANNER -->
+                <div
+                    style="background: linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(16, 185, 129, 0.15)); border: 2px solid var(--accent-cyan); border-radius: 20px; padding: 1.5rem 3rem; max-width: 600px; margin: 0 auto 4rem; box-shadow: 0 0 30px rgba(6, 182, 212, 0.3); animation: pulse-cyan 2s infinite;">
+                    <div
+                        style="display: flex; align-items: center; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+                        <span style="font-size: 2rem;">🎁</span>
+                        <span
+                            style="font-size: 1.5rem; font-weight: 800; color: var(--accent-cyan); letter-spacing: 1px;">
+                            ✨ Try FREE for 20 Minutes — No Card Required!
+                        </span>
+                    </div>
+                </div>
 
                 <div style="display: flex; justify-content: center; gap: 2rem; margin-bottom: 6rem;">
                     <button onclick="openLogin()" class="btn-primary"
@@ -1341,27 +1370,13 @@
                 style="border-top: 1px solid var(--glass-border); padding-top: 6rem;">
                 <h2 class="section-title">Simple & <span style="color: var(--accent-glow);">Honest</span> Pricing.</h2>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem;">
-                    <!-- Free -->
-                    <div class="glass pricing-card glass-card-hover" style="border-radius: 32px;">
-                        <h4 style="color: var(--success); font-size: 1.2rem; font-weight: 800; letter-spacing: 1px;">🟢
-                            Free</h4>
-                        <div class="price">$0</div>
-                        <ul class="feature-list" style="text-align: left; margin: 2rem 0; font-size: 1.1rem;">
-                            <li style="margin-bottom: 0.8rem;">First 5 minutes free</li>
-                            <li style="margin-bottom: 0.8rem;">Resume Match Score</li>
-                            <li style="margin-bottom: 0.8rem;">No card required</li>
-                        </ul>
-                        <button onclick="openLogin()" class="btn-outline" style="width: 100%; padding: 18px;">Get
-                            Started</button>
-                    </div>
-
-                    <!-- Single -->
+                    <!-- Single Interview -->
                     <div class="glass pricing-card popular glass-card-hover"
                         style="border-radius: 32px; border-width: 2px;">
                         <h4
                             style="color: var(--accent-cyan); font-size: 1.2rem; font-weight: 800; letter-spacing: 1px;">
                             🔵 Single Interview</h4>
-                        <div class="price">$5 <span>/ interview</span></div>
+                        <div class="price">$7 <span>/ interview</span></div>
                         <ul class="feature-list" style="text-align: left; margin: 2rem 0; font-size: 1.1rem;">
                             <li style="margin-bottom: 0.8rem;">Up to 60 minutes</li>
                             <li style="margin-bottom: 0.8rem;">Real-time Interview Copilot</li>
@@ -1372,12 +1387,28 @@
                             Now</button>
                     </div>
 
-                    <!-- Pro -->
+                    <!-- 3 Interviews -->
                     <div class="glass pricing-card glass-card-hover" style="border-radius: 32px;">
                         <h4
                             style="color: var(--accent-glow); font-size: 1.2rem; font-weight: 800; letter-spacing: 1px;">
-                            🟣 Pro (Coming Soon)</h4>
-                        <div class="price">$15 <span>/ month</span></div>
+                            🟣 3 Interviews</h4>
+                        <div class="price">$15 <span>/ package</span></div>
+                        <ul class="feature-list" style="text-align: left; margin: 2rem 0; font-size: 1.1rem;">
+                            <li style="margin-bottom: 0.8rem;">3 interview sessions</li>
+                            <li style="margin-bottom: 0.8rem;">Up to 60 minutes each</li>
+                            <li style="margin-bottom: 0.8rem;">Real-time Interview Copilot</li>
+                            <li style="margin-bottom: 0.8rem;">Best value for multiple rounds</li>
+                        </ul>
+                        <button onclick="openLogin()" class="btn-primary" style="width: 100%; padding: 18px;">Buy
+                            Now</button>
+                    </div>
+
+                    <!-- Pro -->
+                    <div class="glass pricing-card glass-card-hover" style="border-radius: 32px;">
+                        <h4
+                            style="color: var(--accent-cyan); font-size: 1.2rem; font-weight: 800; letter-spacing: 1px;">
+                            💎 Pro (Coming Soon)</h4>
+                        <div class="price">$70 <span>/ month</span></div>
                         <ul class="feature-list" style="text-align: left; margin: 2rem 0; font-size: 1.1rem;">
                             <li style="margin-bottom: 0.8rem;">Unlimited interviews</li>
                             <li style="margin-bottom: 0.8rem;">Mock Interviews</li>
