@@ -460,14 +460,54 @@
 
         /* Dashboard & App styling */
         .app-header {
-            height: 70px;
+            height: 80px;
             padding: 0 2rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
             border-bottom: 1px solid var(--glass-border);
-            background: rgba(2, 6, 23, 0.8);
-            backdrop-filter: blur(10px);
+            background: rgba(2, 6, 23, 0.95);
+            backdrop-filter: blur(20px);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .header-left,
+        .header-right {
+            flex: 1;
+            display: flex;
+            align-items: center;
+        }
+
+        .header-right {
+            justify-content: flex-end;
+        }
+
+        .header-center {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 0.5rem 1.5rem;
+            border-radius: 100px;
+            border: 1px solid var(--glass-border);
+        }
+
+        /* Adjustments for the moved buttons */
+        .header-center .btn-circle {
+            width: 44px;
+            height: 44px;
+            font-size: 1.1rem;
+        }
+
+        .header-center .waveform {
+            height: 30px;
+        }
+
+        .header-center #statusText {
+            font-size: 0.85rem;
+            min-width: 80px;
         }
 
         .dash-card {
@@ -483,9 +523,9 @@
         }
 
         .grid-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
             padding: 2rem;
             flex: 1;
             overflow: hidden;
@@ -607,6 +647,40 @@
             height: 100%;
         }
 
+        /* Segmented Control for Mobile Copilot */
+        .copilot-tabs {
+            display: none;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            padding: 4px;
+            border-radius: 12px;
+            margin: 0 1rem 1rem;
+            position: relative;
+            z-index: 20;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            font-family: 'Outfit';
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .tab-btn.active {
+            background: var(--accent-cyan);
+            color: #020617;
+            box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+        }
+
         .scroll-area {
             flex: 1;
             overflow-y: auto;
@@ -620,17 +694,31 @@
 
         /* --- COPILOT COMPONENTS --- */
         .bubble {
-            background: rgba(255, 255, 255, 0.03);
+            background: rgba(2, 6, 23, 0.4);
             border: 1px solid var(--glass-border);
-            padding: 1rem 1.5rem;
-            border-radius: 18px;
-            border-bottom-left-radius: 4px;
-            max-width: 85%;
+            padding: 1.2rem 1.5rem;
+            border-radius: 12px;
+            max-width: 90%;
             font-size: 1rem;
-            line-height: 1.5;
+            line-height: 1.6;
             align-self: flex-start;
             animation: slideIn 0.3s ease-out;
             color: var(--text-secondary);
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
+        .bubble-interviewer::before {
+            content: 'Interviewer';
+            position: absolute;
+            top: -1.4rem;
+            left: 0;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            color: var(--accent-cyan);
+            opacity: 0.8;
         }
 
         .bubble.final {
@@ -645,16 +733,17 @@
         }
 
         .ai-card {
-            background: linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(139, 92, 246, 0.1));
-            border: 1px solid rgba(6, 182, 212, 0.2);
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.08), rgba(139, 92, 246, 0.08));
+            border: 1px solid rgba(6, 182, 212, 0.3);
             padding: 2rem;
-            border-radius: 24px;
-            margin-bottom: 2rem;
+            border-radius: 20px;
+            margin: 2rem 0;
             animation: slideInLeft 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             line-height: 1.8;
             transition: all 0.3s ease;
             cursor: pointer;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.3);
+            width: 100%;
         }
 
         .ai-card:hover {
@@ -1130,45 +1219,87 @@
                 gap: 1.2rem !important;
             }
 
-            /* Copilot Layout - FIXED FOR MOBILE */
+            /* Copilot Layout - UNIFIED CHAT FEED */
             #app-view {
                 height: 100vh;
                 display: flex;
                 flex-direction: column;
-            }
-
-            .app-header {
-                padding: 0 1rem;
-                height: 60px;
-                flex-shrink: 0;
+                background: #020617;
             }
 
             .grid-container {
-                padding: 1rem;
-                gap: 1rem;
+                display: flex !important;
+                flex-direction: column !important;
+                padding: 1rem !important;
+                gap: 0 !important;
                 height: auto !important;
                 flex: 1;
-                overflow-y: auto;
-                grid-template-columns: 1fr !important;
-                /* Force single column */
+                overflow: hidden !important;
+                max-width: 600px;
+                /* Centered chat look for mobile */
+                margin: 0 auto;
+                width: 100%;
             }
 
             .panel {
-                height: 250px;
-                min-height: 250px;
+                height: 100% !important;
+                display: flex !important;
+                flex-direction: column;
+            }
+
+            .scroll-area {
+                padding: 1rem !important;
+                border: none !important;
+                background: transparent !important;
+            }
+
+            .ai-card {
+                padding: 1.5rem !important;
+                border-radius: 20px !important;
+                margin-bottom: 1.5rem !important;
+                width: 100% !important;
+                align-self: center;
+            }
+
+            .bubble {
+                max-width: 90% !important;
+                margin-bottom: 1rem !important;
+            }
+
+            .app-header {
+                height: auto !important;
+                padding: 1rem !important;
+                flex-direction: column !important;
+                gap: 1rem !important;
+                position: relative !important;
+            }
+
+            .header-left,
+            .header-right {
+                width: 100% !important;
+                justify-content: space-between !important;
+                flex: none !important;
+            }
+
+            .header-center {
+                width: 100% !important;
+                justify-content: center !important;
+                padding: 0.8rem !important;
+                gap: 1rem !important;
+            }
+
+            .header-center .btn-circle {
+                width: 50px !important;
+                height: 50px !important;
+            }
+
+            .header-center .waveform {
+                display: none !important;
+                /* Hide waveform on ultra-compact mobile header if needed, or keep smaller */
             }
 
             .control-bar {
-                flex-wrap: wrap;
-                justify-content: center;
-                gap: 1.5rem;
-                padding: 1rem;
-                height: auto !important;
-                min-height: 80px !important;
-                flex-shrink: 0;
-                position: sticky;
-                bottom: 0;
-                background: var(--bg-dark);
+                display: none !important;
             }
 
             .btn-circle {
@@ -1814,37 +1945,49 @@
     <!-- VIEW: APP -->
     <div id="app-view" class="view">
         <header class="app-header">
-            <div class="logo">PokoAI Copilot</div>
-            <button class="btn-outline" onclick="showView('dashboard-view')">Back</button>
+            <div class="header-left">
+                <div class="logo">PokoAI</div>
+            </div>
+
+            <div class="header-center">
+                <div id="waveform" class="waveform">
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                </div>
+
+                <div style="display: flex; gap: 0.8rem; align-items: center;">
+                    <button id="startBtn" class="btn-circle btn-start" title="Start Listening">▶</button>
+                    <button id="stopBtn" class="btn-circle btn-stop" disabled title="Stop Session">■</button>
+                </div>
+
+                <div id="statusText"
+                    style="color: var(--text-secondary); display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.85rem; letter-spacing: 0.5px;">
+                    <span id="listeningDot" class="hidden pulse-listening"
+                        style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; display: inline-block; box-shadow: 0 0 10px #10b981;"></span>
+                    <span id="statusLabel" style="min-width: 60px;">READY</span>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <button class="btn-outline" onclick="showView('dashboard-view')">Back</button>
+            </div>
         </header>
         <div class="grid-container">
-            <div class="panel">
-                <div
-                    style="padding: 1rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem; text-transform: uppercase;">
-                    Live Transcript</div>
-                <div id="transcript" class="scroll-area glass"></div>
-            </div>
-            <div class="panel">
-                <div
-                    style="padding: 1rem; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem; text-transform: uppercase;">
-                    AI Suggestions</div>
-                <div id="aiOutput" class="scroll-area glass"></div>
-            </div>
-        </div>
-        <div class="control-bar">
-            <div id="waveform" class="waveform">
-                <div class="bar"></div>
-                <div class="bar"></div>
-                <div class="bar"></div>
-                <div class="bar"></div>
-                <div class="bar"></div>
-            </div>
-            <button id="startBtn" class="btn-circle btn-start" title="Start Listening">▶</button>
-            <button id="stopBtn" class="btn-circle btn-stop" disabled title="Stop Session">■</button>
-            <div id="statusText"
-                style="color: var(--text-secondary); display: flex; align-items: center; min-width: 140px; font-weight: 500;">
-                <span id="listeningDot" class="hidden pulse-listening"></span>
-                <span id="statusLabel">Ready</span>
+            <div class="panel" style="width: 100%;">
+                <div id="copilot-feed" class="scroll-area"
+                    style="gap: 1.5rem; padding-top: 2rem; display: flex; flex-direction: column;">
+                    <!-- Chronological Chat Flow (Reverse) -->
+                    <div id="intro-bubble" class="bubble final"
+                        style="align-self: center; background: rgba(34, 211, 238, 0.05); color: var(--accent-cyan); border-color: rgba(34, 211, 238, 0.2); text-align: center; max-width: 100%; margin-top: 2rem;">
+                        <span
+                            style="font-size: 0.7rem; font-weight: 800; text-transform: uppercase; display: block; margin-bottom: 0.5rem; opacity: 0.6;">System
+                            Status</span>
+                        AI Copilot is active. Start speaking to receive real-time assistance.
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -2106,8 +2249,13 @@
             document.getElementById('jdInput').value = '';
 
             // Clear previous session data
-            document.getElementById('transcript').innerHTML = '';
-            document.getElementById('aiOutput').innerHTML = '';
+            const feed = document.getElementById('copilot-feed');
+            feed.innerHTML = `
+                <div id="intro-bubble" class="bubble final" style="align-self: center; background: rgba(34, 211, 238, 0.05); color: var(--accent-cyan); border-color: rgba(34, 211, 238, 0.2); text-align: center; max-width: 100%; margin-top: 2rem;">
+                    <span style="font-size: 0.7rem; font-weight: 800; text-transform: uppercase; display: block; margin-bottom: 0.5rem; opacity: 0.6;">System Status</span>
+                    AI Copilot is active. Start speaking to receive real-time assistance.
+                </div>
+            `;
 
             // Reset to step 1
             nextStep(1);
@@ -2191,20 +2339,34 @@
 
         let currentBubble = null;
         function updateTranscript(text, isFinal) {
-            if (!currentBubble) { currentBubble = document.createElement('div'); currentBubble.className = 'bubble'; transcriptDiv.appendChild(currentBubble); }
+            const feed = document.getElementById('copilot-feed');
+            if (!currentBubble) {
+                currentBubble = document.createElement('div');
+                currentBubble.className = 'bubble bubble-interviewer';
+                feed.prepend(currentBubble); // Prepend for Focus-First (Reverse chronological)
+            }
             currentBubble.innerHTML = `<span class="${isFinal ? '' : 'interim'}">${text}</span>`;
-            transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
-            if (isFinal) { currentBubble.classList.add('final'); currentBubble = null; }
+
+            if (isFinal) {
+                currentBubble.classList.add('final');
+                currentBubble = null;
+            }
         }
 
         function addAiCard(q, a) {
-            const card = document.createElement('div'); card.className = 'ai-card glass';
+            const feed = document.getElementById('copilot-feed');
+            const card = document.createElement('div');
+            card.className = 'ai-card glass';
             card.innerHTML = `<div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1rem;">
                 <span class="live-pulse" style="background:var(--accent-cyan); color:black; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:800;">LIVE ADVICE</span>
                 <div style="color: var(--accent-cyan); font-weight: 700; font-size: 1.1rem;">${q}</div>
             </div>
             <div class="ai-content" style="font-size: 1.05rem; letter-spacing:0.2px;">${marked.parse(a)}</div>`;
-            aiOutputDiv.prepend(card);
+            feed.prepend(card); // Prepend for Focus-First (Reverse chronological)
+
+            // Subtle glow effect on new advice arrivals
+            card.style.borderColor = 'var(--accent-cyan)';
+            setTimeout(() => card.style.borderColor = 'rgba(6, 182, 212, 0.3)', 2000);
         }
 
         function floatTo16BitPCM(input) {
