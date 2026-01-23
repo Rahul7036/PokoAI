@@ -334,7 +334,8 @@ async def get_vertex_response(text, history):
         
         # Smart Prompt with Resume & JD
         prompt = f"""
-        You are the candidate (Rahul Gandham) in a job interview for {USER_CONTEXT['company']}.
+        You are the candidate in a job interview for {USER_CONTEXT['company']}.
+        Identify yourself using the name and details provided in YOUR RESUME below.
         You are listening to the INTERVIEWER.
         
         YOUR RESUME (The "Truth"):
