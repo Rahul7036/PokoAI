@@ -1507,7 +1507,7 @@
         <div class="modal-card glass">
             <h2 style="margin-bottom: 2rem; font-size: 2rem;">Welcome Back</h2>
             <div id="g_id_onload"
-                data-client_id="595917889227-8js5rpugt95nnrvqjlbodobea128f86i.apps.googleusercontent.com"
+                data-client_id="595917889227-2b4948v2eove1lrv5fjptpoardnu5l69.apps.googleusercontent.com"
                 data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
             <div class="g_id_signin" data-type="standard" data-size="large" data-theme="filled_black"
                 data-text="sign_in_with" data-shape="rectangular" data-logo_alignment="left"></div>
@@ -2502,11 +2502,27 @@
         }
 
         async function handleCredentialResponse(resp) {
+            const errorEl = document.getElementById('loginError');
+            if (errorEl) errorEl.innerText = "Authenticating with Google...";
             try {
-                const res = await fetch('/auth/google', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: resp.credential }) });
+                const res = await fetch('/auth/google', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: resp.credential })
+                });
                 const data = await res.json();
-                if (res.ok) { localStorage.setItem('token', data.access_token); closeLogin(); checkAuth(); }
-            } catch (e) { console.error(e); }
+                if (res.ok) {
+                    localStorage.setItem('token', data.access_token);
+                    if (errorEl) errorEl.innerText = "";
+                    closeLogin();
+                    checkAuth();
+                } else {
+                    if (errorEl) errorEl.innerText = data.detail || "Google Login Failed";
+                }
+            } catch (e) {
+                console.error(e);
+                if (errorEl) errorEl.innerText = "Google Login Connection Error";
+            }
         }
 
         function nextStep(step) {

@@ -169,18 +169,23 @@ def google_auth(login: GoogleLogin, db: Session = Depends(get_db)):
     db_user = db.query(models.User).filter(models.User.email == email).first()
     
     if not db_user:
-        # Create new user via Google
-        db_user = models.User(email=email, google_id=google_id, is_active=False)
+        # Create new user via Google, automatically activate and set 20 min limit (1200s)
+        full_name = id_info.get('name')
+        db_user = models.User(
+            email=email, 
+            google_id=google_id, 
+            full_name=full_name,
+            is_active=True, 
+            time_limit_seconds=1200
+        )
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
-    elif not db_user.google_id:
-        # Link Google ID if existing email
+    else:
+        # User exists, ensure they are linked to Google and active
         db_user.google_id = google_id
+        db_user.is_active = True
         db.commit()
-    
-    if not db_user.is_active:
-        raise HTTPException(status_code=403, detail="Account pending approval. Please contact support.")
 
     access_token = create_access_token(data={"sub": db_user.email})
     return {"access_token": access_token, "token_type": "bearer"}
