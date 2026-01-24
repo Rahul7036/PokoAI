@@ -258,6 +258,53 @@ async def update_context(
     logger.info(f"Context updated via API for company: {company}")
     return {"status": "success", "message": "Context updated"}
 
+@app.post("/api/generate-briefing")
+async def generate_briefing():
+    try:
+        if not USER_CONTEXT["resume"] or not USER_CONTEXT["jd"]:
+            return {"status": "error", "message": "Resume and JD required"}
+
+        prompt = f"""
+        You are a career coach. Based on this RESUME and JOB DESCRIPTION, generate 4 "Prep Cards" to help the candidate in the final 5 minutes before the interview.
+        
+        RESUME: {USER_CONTEXT['resume'][:3000]}
+        JD: {USER_CONTEXT['jd'][:2000]}
+
+        OUTPUT FORMAT (JSON ONLY):
+        {{
+            "cards": [
+                {{
+                    "title": "Elevator Pitch",
+                    "content": "A 2-sentence intro tailored to this role.",
+                    "icon": "🚀"
+                }},
+                {{
+                    "title": "Must-Mention Project",
+                    "content": "Which project fits this JD best and why.",
+                    "icon": "⭐"
+                }},
+                {{
+                    "title": "The Challenge",
+                    "content": "A potential weakness/gap and how to defend it.",
+                    "icon": "⚠️"
+                }},
+                {{
+                    "title": "Top Skill",
+                    "content": "The #1 technical skill this JD wants most.",
+                    "icon": "🛠️"
+                }}
+            ]
+        }}
+        """
+        response = await asyncio.to_thread(model.generate_content, prompt)
+        text = response.text.strip()
+        if "```json" in text:
+            text = text.split("```json")[1].split("```")[0]
+        return json.loads(text)
+    except Exception as e:
+        logger.error(f"Briefing failed: {e}")
+        return {"status": "error", "message": str(e)}
+
 @app.post("/api/analyze-resume")
 async def analyze_resume(
     resume: UploadFile = File(...),
