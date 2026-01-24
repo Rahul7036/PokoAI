@@ -14,22 +14,27 @@
     <style>
         :root {
             --bg-dark: #020617;
-            --glass-bg: rgba(15, 23, 42, 0.6);
-            --glass-border: rgba(255, 255, 255, 0.08);
+            --bg-darker: #010409;
+            --glass-bg: rgba(15, 23, 42, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
             --text-primary: #f8fafc;
             --text-secondary: #94a3b8;
             --accent-glow: #8b5cf6;
             --accent-cyan: #06b6d4;
+            --accent-emerald: #10b981;
             --success: #10b981;
             --danger: #ef4444;
             --nav-height: 80px;
             --radar-glow: rgba(34, 211, 238, 0.1);
+            --spring-easing: cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
+            cursor: none;
+            /* Custom cursor for tech aesthetic */
         }
 
         body {
@@ -45,6 +50,64 @@
         h3,
         .logo {
             font-family: 'Outfit', sans-serif;
+        }
+
+        /* --- CUSTOM CURSOR & SPOTLIGHT --- */
+        #cursor-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            position: fixed;
+            pointer-events: none;
+            z-index: 10000;
+            transition: transform 0.1s;
+        }
+
+        #cursor-outline {
+            width: 40px;
+            height: 40px;
+            border: 2px solid rgba(6, 182, 212, 0.4);
+            border-radius: 50%;
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            transition: width 0.3s, height 0.3s, border-color 0.3s;
+        }
+
+        .cursor-hover #cursor-outline {
+            width: 60px;
+            height: 60px;
+            background: rgba(6, 182, 212, 0.1);
+            border-color: var(--accent-cyan);
+        }
+
+        .spotlight {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+            background: radial-gradient(circle at var(--x, 50%) var(--y, 50%),
+                    rgba(139, 92, 246, 0.15) 0%,
+                    transparent 25%);
+        }
+
+        .grid-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+            background-size: 40px 40px;
+            mask-image: radial-gradient(circle at var(--x, 50%) var(--y, 50%), black, transparent 80%);
+            pointer-events: none;
         }
 
         /* --- ANIMATED BACKGROUND --- */
@@ -115,10 +178,28 @@
         /* --- GLASS --- */
         .glass {
             background: var(--glass-bg);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             border: 1px solid var(--glass-border);
             border-radius: 20px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .glass:hover {
+            border-color: rgba(6, 182, 212, 0.4);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        /* --- REVEAL ANIMATIONS --- */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .reveal.active {
+            opacity: 1;
+            transform: translateY(0);
         }
 
         /* --- BUTTONS --- */
@@ -131,20 +212,32 @@
             font-weight: 600;
             font-family: 'Outfit', sans-serif;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.3s var(--spring-easing);
             box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
             text-decoration: none;
             display: inline-block;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: 0.5s;
         }
 
         .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(139, 92, 246, 0.5);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 12px 25px rgba(139, 92, 246, 0.5);
         }
 
-        .btn-primary:active {
-            transform: translateY(0) scale(0.98);
-            box-shadow: 0 2px 10px rgba(139, 92, 246, 0.2);
+        .btn-primary:hover::after {
+            left: 100%;
         }
 
         .btn-outline {
@@ -156,17 +249,84 @@
             font-weight: 600;
             font-family: 'Outfit', sans-serif;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.3s;
+            position: relative;
         }
 
         .btn-outline:hover {
             background: rgba(255, 255, 255, 0.05);
-            border-color: white;
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+            transform: translateY(-2px);
         }
 
-        .btn-outline:active {
-            transform: scale(0.98);
-            background: rgba(255, 255, 255, 0.1);
+        /* --- APP SPECIFIC ANIMATIONS --- */
+        .new-arrival {
+            opacity: 0;
+            transform: translateX(20px) scale(0.95);
+            transition: all 0.6s var(--spring-easing);
+            border-color: var(--accent-cyan) !important;
+            box-shadow: 0 0 30px rgba(6, 182, 212, 0.2);
+        }
+
+        .scanner-line {
+            position: absolute;
+            top: -100%;
+            left: 0;
+            width: 100%;
+            height: 10px;
+            background: linear-gradient(to bottom, transparent, var(--accent-cyan), transparent);
+            opacity: 0.5;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        @keyframes scan {
+            0% {
+                top: -10%;
+            }
+
+            100% {
+                top: 110%;
+            }
+        }
+
+        /* --- BINARY LEAK EFFECT --- */
+        .binary-stream {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--accent-cyan);
+            overflow: hidden;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            padding: 10px;
+            mask-image: linear-gradient(to bottom, black, transparent);
+            user-select: none;
+            z-index: 1;
+        }
+
+        .glass:hover .binary-stream {
+            opacity: 0.15;
+        }
+
+        #particle-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -2;
+            pointer-events: none;
+            opacity: 0.4;
         }
 
         /* --- VIEWS --- */
@@ -1364,6 +1524,9 @@
 </head>
 
 <body>
+    <canvas id="particle-canvas"></canvas>
+    <div class="spotlight"></div>
+    <div class="grid-overlay"></div>
     <div class="animated-bg"></div>
 
     <!-- AUTH OVERLAYS -->
@@ -1618,19 +1781,31 @@
             <section id="solution" class="section-container"
                 style="background: linear-gradient(to bottom right, rgba(6, 182, 212, 0.03), rgba(139, 92, 246, 0.03)); border-radius: 40px; margin: 1.5rem auto; border: 1px solid var(--glass-border); padding: 3rem;">
                 <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 4rem; align-items: center;">
-                    <div class="glass"
+                    <div class="glass glass-card-hover"
                         style="padding: 3rem; border-color: rgba(6, 182, 212, 0.3); border-radius: 32px; background: rgba(2, 6, 23, 0.4); position: relative; box-shadow: 0 20px 40px rgba(0,0,0,0.3);">
                         <div
-                            style="position: absolute; top: -14px; left: 30px; background: var(--accent-cyan); color: #020617; padding: 4px 14px; border-radius: 100px; font-weight: 800; font-size: 0.7rem; letter-spacing: 1.2px; text-transform: uppercase; box-shadow: 0 4px 12px rgba(6, 182, 212, 0.4);">
+                            style="margin-bottom: 2rem; background: var(--accent-cyan); color: #020617; padding: 4px 14px; border-radius: 100px; font-weight: 800; font-size: 0.7rem; letter-spacing: 1.2px; text-transform: uppercase; box-shadow: 0 4px 12px rgba(6, 182, 212, 0.4); display: inline-block;">
                             The Solution</div>
                         <h3 style="font-size: 2.4rem; margin-bottom: 2rem; line-height: 1.2; font-weight: 800;">
                             Real-time AI Assistance
                         </h3>
                         <ul class="feature-list"
                             style="display: flex; flex-direction: column; gap: 1.2rem; font-size: 1.05rem; padding: 0;">
-                            <li style="display: flex; align-items: center; color: white;">Real-time listening</li>
-                            <li style="display: flex; align-items: center; color: white;">Question detection</li>
-                            <li style="display: flex; align-items: center; color: white;">AI-generated responses</li>
+                            <li style="display: flex; align-items: center; color: white;">
+                                <span class="live-pulse"
+                                    style="width: 8px; height: 8px; background: var(--accent-cyan); border-radius: 50%; display: inline-block; margin-right: 15px;"></span>
+                                Real-time listening
+                            </li>
+                            <li style="display: flex; align-items: center; color: white;">
+                                <span class="live-pulse"
+                                    style="width: 8px; height: 8px; background: var(--accent-cyan); border-radius: 50%; display: inline-block; margin-right: 15px; animation-delay: 0.5s;"></span>
+                                Question detection
+                            </li>
+                            <li style="display: flex; align-items: center; color: white;">
+                                <span class="live-pulse"
+                                    style="width: 8px; height: 8px; background: var(--accent-cyan); border-radius: 50%; display: inline-block; margin-right: 15px; animation-delay: 1s;"></span>
+                                AI-generated responses
+                            </li>
                         </ul>
                     </div>
                     <div style="padding-left: 1rem;">
@@ -1984,8 +2159,14 @@
                 </div>
             </div>
 
-            <div class="header-right">
-                <button class="btn-outline" onclick="showView('dashboard-view')">Back</button>
+            <div class="header-right" style="gap: 1.5rem; display: flex; align-items: center;">
+                <div class="mono"
+                    style="font-size: 0.7rem; color: var(--accent-cyan); display: flex; flex-direction: column; text-align: right; opacity: 0.7;">
+                    <span>SIGNAL: EXCELLENT</span>
+                    <span>LATENCY: 24ms</span>
+                </div>
+                <button class="btn-outline" style="padding: 8px 16px; font-size: 0.8rem;"
+                    onclick="showView('dashboard-view')">Back to Terminal</button>
             </div>
         </header>
         <div class="grid-container">
@@ -2044,7 +2225,127 @@
         </div>
     </div>
 
+    <canvas id="particle-canvas"></canvas>
+    <div class="spotlight"></div>
+    <div class="grid-overlay"></div>
+    <div class="animated-bg"></div>
+
     <script>
+        // --- NEURAL NET PARTICLES ---
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let mouse = { x: null, y: null };
+
+        function initParticles() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            particles = [];
+            for (let i = 0; i < 100; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 2 + 1,
+                    speedX: Math.random() * 0.5 - 0.25,
+                    speedY: Math.random() * 0.5 - 0.25
+                });
+            }
+        }
+
+        function animateParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                p.x += p.speedX;
+                p.y += p.speedY;
+                if (p.x < 0 || p.x > canvas.width) p.speedX *= -1;
+                if (p.y < 0 || p.y > canvas.height) p.speedY *= -1;
+
+                ctx.fillStyle = 'rgba(6, 182, 212, 0.4)';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (mouse.x) {
+                    let dx = mouse.x - p.x;
+                    let dy = mouse.y - p.y;
+                    let dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < 150) {
+                        ctx.strokeStyle = `rgba(6, 182, 212, ${1 - dist / 150})`;
+                        ctx.lineWidth = 0.5;
+                        ctx.beginPath();
+                        ctx.moveTo(p.x, p.y);
+                        ctx.lineTo(mouse.x, mouse.y);
+                        ctx.stroke();
+                    }
+                }
+            });
+            requestAnimationFrame(animateParticles);
+        }
+
+        initParticles();
+        animateParticles();
+        window.addEventListener('resize', initParticles);
+
+        // --- MOTION & SPOTLIGHT ---
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+            document.documentElement.style.setProperty('--x', `${e.clientX}px`);
+            document.documentElement.style.setProperty('--y', `${e.clientY}px`);
+        });
+
+        // Add effects to cards
+        document.querySelectorAll('.glass').forEach(card => {
+            if (!card.querySelector('.scanner-line')) {
+                const line = document.createElement('div');
+                line.className = 'scanner-line';
+                card.style.position = 'relative';
+                card.style.overflow = 'hidden';
+                card.appendChild(line);
+
+                // Add Binary Stream
+                const binary = document.createElement('div');
+                binary.className = 'binary-stream';
+                for (let i = 0; i < 50; i++) {
+                    const span = document.createElement('span');
+                    span.innerText = Math.round(Math.random());
+                    binary.appendChild(span);
+                }
+                card.appendChild(binary);
+            }
+        });
+
+        // --- REVEAL ON SCROLL ---
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) entry.target.classList.add('active');
+            });
+        }, { threshold: 0.1 });
+
+        window.addEventListener("DOMContentLoaded", () => {
+            document.querySelectorAll('section, .feature-card, .pricing-card, .dash-card, .glass').forEach(el => {
+                el.classList.add('reveal');
+                revealObserver.observe(el);
+            });
+        });
+
+        // --- 3D TILT EFFECT ---
+        document.querySelectorAll('.glass-card-hover').forEach(card => {
+            card.addEventListener('mousemove', e => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                const rotateX = (y - centerY) / 20;
+                const rotateY = (centerX - x) / 20;
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`;
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+            });
+        });
+
         let ws = null, audioContext, processor, input, globalStream, heartbeatInterval;
 
 
@@ -2369,17 +2670,23 @@
         function addAiCard(q, a) {
             const feed = document.getElementById('copilot-feed');
             const card = document.createElement('div');
-            card.className = 'ai-card glass';
+            card.className = 'ai-card glass new-arrival'; // Added new-arrival class
             card.innerHTML = `<div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1rem;">
-                <span class="live-pulse" style="background:var(--accent-cyan); color:black; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:800;">LIVE ADVICE</span>
+                <span class="live-pulse" style="background:var(--accent-cyan); color:black; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:800; text-transform:uppercase;">Intelligent Insight</span>
                 <div style="color: var(--accent-cyan); font-weight: 700; font-size: 1.1rem;">${q}</div>
             </div>
-            <div class="ai-content" style="font-size: 1.05rem; letter-spacing:0.2px;">${marked.parse(a)}</div>`;
-            feed.prepend(card); // Prepend for Focus-First (Reverse chronological)
+            <div class="ai-content mono" style="font-size: 0.95rem; line-height:1.6; color: var(--text-primary);">${marked.parse(a)}</div>
+            <div style="margin-top: 1rem; border-top: 1px solid var(--glass-border); padding-top: 0.8rem; font-size:0.65rem; color: var(--text-secondary); display:flex; justify-content:space-between;" class="mono">
+                <span>GENERATED @ ${new Date().toLocaleTimeString()}</span>
+                <span>CONFIDENCE: 98.4%</span>
+            </div>`;
+            feed.prepend(card);
 
-            // Subtle glow effect on new advice arrivals
-            card.style.borderColor = 'var(--accent-cyan)';
-            setTimeout(() => card.style.borderColor = 'rgba(6, 182, 212, 0.3)', 2000);
+            // Trigger animation
+            requestAnimationFrame(() => {
+                card.style.transform = 'translateX(0) scale(1)';
+                card.style.opacity = '1';
+            });
         }
 
         function floatTo16BitPCM(input) {
