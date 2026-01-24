@@ -136,7 +136,7 @@
 
         .glass-card-hover:hover {
             transform: translateY(-15px) scale(1.02);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(139, 92, 246, 0.2);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 40px rgba(6, 182, 212, 0.2);
             border-color: var(--accent-cyan);
         }
 
@@ -170,6 +170,22 @@
         .reveal.active {
             opacity: 1;
             transform: translateY(0);
+        }
+
+        .entry-animate {
+            animation: entryFade 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        @keyframes entryFade {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         /* --- BUTTONS --- */
@@ -1818,83 +1834,117 @@
         </header>
 
         <main>
-            <!-- Hero -->
-            <section class="section-container"
-                style="text-align: center; padding-top: 4rem; padding-bottom: 3rem; position: relative; overflow: hidden;">
+            <!-- Hero: Mission Command Redesign -->
+            <section class="section-container entry-animate"
+                style="text-align: center; padding-top: 6rem; padding-bottom: 6rem; position: relative; overflow: visible;">
+
+                <!-- Background Orbital Lines -->
                 <div
-                    style="position: absolute; top: 10%; left: 50%; transform: translateX(-50%); width: 600px; height: 600px; background: radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, transparent 70%); z-index: -1;">
+                    style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 1200px; height: 1200px; background: radial-gradient(circle, rgba(6, 182, 212, 0.05) 0%, transparent 60%); z-index: -1;">
                 </div>
 
-                <div class="floating"
-                    style="display: inline-block; margin-bottom: 1rem; background: rgba(34, 211, 238, 0.1); padding: 8px 16px; border-radius: 100px; border: 1px solid rgba(34, 211, 238, 0.3); color: var(--accent-cyan); font-size: 0.9rem; font-weight: 700; letter-spacing: 1px;">
-                    ✨ Poko AI
-                </div>
-
-                <h2
-                    style="font-size: 2.5rem; line-height: 1.1; margin-bottom: 2rem; letter-spacing: -1.5px; font-weight: 900;">
-                    <span style="color: var(--text-primary); display: block; margin-bottom: 0.3rem;">Your
-                        Real-Time</span>
-                    <span
-                        style="background: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 50%, #22d3ee 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; background-size: 200% auto; animation: shimmer 3s linear infinite; font-size: 3.2rem; display: inline-block;">Interview
-                        Copilot</span>
-                </h2>
-
-                <style>
-                    @keyframes shimmer {
-                        0% {
-                            background-position: 0% center;
-                        }
-
-                        100% {
-                            background-position: 200% center;
-                        }
-                    }
-                </style>
-
-                <p
-                    style="font-size: 1.15rem; color: var(--text-secondary); max-width: 800px; margin: 0 auto 2rem; line-height: 1.6; font-weight: 400;">
-                    <span style="color: #06b6d4; font-weight: 600;">Ace interviews</span> with confidence.<br>
-                    Poko AI <span style="color: white; font-weight: 500;">listens to live interviews</span>, understands
-                    questions, and helps you
-                    <span
-                        style="background: linear-gradient(to right, #06b6d4, #8b5cf6); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; font-weight: 600;">respond
-                        intelligently</span> — in real time.
-                </p>
-
-                <!-- FREE 20 MINUTES BANNER -->
-                <div
-                    style="background: linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(16, 185, 129, 0.15)); border: 2px solid var(--accent-cyan); border-radius: 20px; padding: 1.5rem 3rem; max-width: 600px; margin: 0 auto 3rem; box-shadow: 0 0 30px rgba(6, 182, 212, 0.3); animation: pulse-cyan 2s infinite;">
+                <div style="animation: entryFade 1.2s ease-out 0.2s backwards;">
                     <div
-                        style="display: flex; align-items: center; justify-content: center; gap: 1rem; flex-wrap: wrap;">
-                        <span style="font-size: 1.5rem;">🎁</span>
+                        style="display: inline-flex; align-items: center; gap: 12px; background: rgba(255, 255, 255, 0.03); padding: 8px 16px; border-radius: 100px; border: 1px solid var(--glass-border); backdrop-filter: blur(10px); margin-bottom: 2rem;">
+                        <span class="live-pulse"
+                            style="width: 8px; height: 8px; background: var(--accent-cyan); border-radius: 50%;"></span>
                         <span
-                            style="font-size: 1.1rem; font-weight: 800; color: var(--accent-cyan); letter-spacing: 0.5px;">
-                            ✨ Try FREE for 20 Minutes — No Card Required!
-                        </span>
+                            style="font-size: 0.75rem; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;">Poko
+                            AI 2026 Core Active</span>
                     </div>
                 </div>
 
-                <div style="display: flex; justify-content: center; gap: 2rem; margin-bottom: 4rem;">
-                    <button onclick="openLogin()" class="btn-primary"
-                        style="padding: 16px 48px; font-size: 1.1rem; border-radius: 12px;">
-                        Start Interview Copilot
-                    </button>
-                    <button onclick="openLogin()" class="btn-outline"
-                        style="padding: 16px 36px; font-size: 1rem; border-radius: 12px;">
-                        Try Resume Match
-                    </button>
+                <div style="animation: entryFade 1.2s ease-out 0.4s backwards;">
+                    <h1
+                        style="font-family: 'Outfit'; font-size: 5rem; line-height: 0.95; letter-spacing: -3px; margin-bottom: 1.5rem; font-weight: 900;">
+                        <span style="color: var(--text-primary); display: block;">Your Real-Time</span>
+                        <span
+                            style="background: linear-gradient(135deg, #fff 0%, var(--accent-cyan) 50%, var(--accent-glow) 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; background-size: 200% auto; animation: shimmer 4s linear infinite;">Interview
+                            Copilot</span>
+                    </h1>
+                </div>
+
+                <div style="margin-bottom: 4rem; animation: entryFade 1.2s ease-out 0.6s backwards;">
+                    <p
+                        style="font-size: 1.4rem; font-weight: 400; color: var(--text-secondary); max-width: 800px; margin: 0 auto; line-height: 1.4;">
+                        We don&rsquo;t answer for you. <span style="color: white; font-weight: 600;">We guide you in the
+                            moment.</span>
+                    </p>
+                </div>
+
+                <!-- High Impact Capability Grid -->
+                <div
+                    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; max-width: 1100px; margin: 0 auto 5rem; animation: entryFade 1.2s ease-out 0.8s backwards;">
+                    <div class="glass glass-card-hover"
+                        style="padding: 2.5rem; text-align: left; border-radius: 28px; background: rgba(255,255,255,0.02); transition: all 0.5s var(--spring-easing);">
+                        <div
+                            style="font-size: 2rem; margin-bottom: 1.5rem; filter: drop-shadow(0 0 10px rgba(6,182,212,0.3));">
+                            👂</div>
+                        <h4
+                            style="font-size: 1.25rem; margin-bottom: 0.75rem; font-weight: 800; font-family: 'Outfit';">
+                            Silent Listener</h4>
+                        <p style="font-size: 0.95rem; color: var(--text-secondary); line-height: 1.6;">Analyzes live
+                            conversation context with zero-storage privacy. We hear, but we never store.</p>
+                    </div>
+                    <div class="glass glass-card-hover"
+                        style="padding: 2.5rem; text-align: left; border-radius: 28px; border-color: var(--accent-cyan); background: rgba(6, 182, 212, 0.05); transform: translateY(-10px); box-shadow: 0 20px 40px rgba(6,182,212,0.15);">
+                        <div
+                            style="font-size: 2rem; margin-bottom: 1.5rem; filter: drop-shadow(0 0 10px rgba(6,182,212,0.5));">
+                            🧠</div>
+                        <h4
+                            style="font-size: 1.25rem; margin-bottom: 0.75rem; font-weight: 800; font-family: 'Outfit';">
+                            Brutal Match Logic</h4>
+                        <p style="font-size: 0.95rem; color: var(--text-secondary); line-height: 1.6;">Instantly maps
+                            interviewer intent to your elite resume strengths for maximum impact.</p>
+                    </div>
+                    <div class="glass glass-card-hover"
+                        style="padding: 2.5rem; text-align: left; border-radius: 28px; background: rgba(255,255,255,0.02); transition: all 0.5s var(--spring-easing);">
+                        <div
+                            style="font-size: 2rem; margin-bottom: 1.5rem; filter: drop-shadow(0 0 10px rgba(6,182,212,0.3));">
+                            ⚡</div>
+                        <h4
+                            style="font-size: 1.25rem; margin-bottom: 0.75rem; font-weight: 800; font-family: 'Outfit';">
+                            Zero-Latency Prompts</h4>
+                        <p style="font-size: 0.95rem; color: var(--text-secondary); line-height: 1.6;">Real-time flash
+                            guidance that keeps you composed and articulated under extreme pressure.</p>
+                    </div>
                 </div>
 
                 <div
-                    style="display: flex; justify-content: center; gap: 3rem; color: var(--text-secondary); font-size: 0.95rem; border-top: 1px solid var(--glass-border); padding-top: 2.5rem; max-width: 850px; margin: 0 auto;">
-                    <div style="display: flex; align-items: center; gap: 0.6rem;"><span
-                            style="color: var(--accent-cyan); font-size: 1.2rem;">⭐</span> <strong>4.6 / 5</strong>
-                        rating</div>
-                    <div style="display: flex; align-items: center; gap: 0.6rem;"><span
-                            style="color: var(--accent-glow); font-size: 1.2rem;">🎤</span> <strong>46+</strong> real
-                        interviews assisted</div>
-                    <div style="display: flex; align-items: center; gap: 0.6rem;"><span
-                            style="color: var(--success); font-size: 1.2rem;">🔒</span> Privacy-first & discreet</div>
+                    style="display: flex; justify-content: center; gap: 3rem; align-items: center; margin-bottom: 5rem; flex-wrap: wrap; animation: entryFade 1.2s ease-out 1s backwards;">
+                    <button onclick="openLogin()" class="btn-primary"
+                        style="padding: 22px 60px; font-size: 1.3rem; border-radius: 20px; box-shadow: 0 20px 50px rgba(6, 182, 212, 0.3);">
+                        Enter Mission Control 🚀
+                    </button>
+                    <div style="text-align: left; border-left: 2px solid var(--accent-cyan); padding-left: 1.5rem;">
+                        <div style="font-weight: 900; font-size: 1.1rem; color: white;">Try FREE for 20m</div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary);">Limited Beta Access &bull; No CC
+                            Required</div>
+                    </div>
+                </div>
+
+                <div
+                    style="display: flex; justify-content: center; gap: 6rem; padding-top: 4rem; border-top: 1px solid rgba(255,255,255,0.08); max-width: 1000px; margin: 0 auto; animation: entryFade 1.2s ease-out 1.2s backwards;">
+                    <div style="display: flex; flex-direction: column; gap: 6px; align-items: center;">
+                        <span
+                            style="font-size: 2rem; font-weight: 900; color: white; font-family: 'Outfit';">4.6/5</span>
+                        <span
+                            style="font-size: 0.75rem; letter-spacing: 1.5px; color: var(--accent-cyan); text-transform: uppercase; font-weight: 800;">Candidate
+                            Rating</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 6px; align-items: center;">
+                        <span style="font-size: 2rem; font-weight: 900; color: white; font-family: 'Outfit';">46+</span>
+                        <span
+                            style="font-size: 0.75rem; letter-spacing: 1.5px; color: var(--accent-cyan); text-transform: uppercase; font-weight: 800;">Real
+                            Missions</span>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 6px; align-items: center;">
+                        <span
+                            style="font-size: 2rem; font-weight: 900; color: white; font-family: 'Outfit';">100%</span>
+                        <span
+                            style="font-size: 0.75rem; letter-spacing: 1.5px; color: var(--accent-cyan); text-transform: uppercase; font-weight: 800;">Encrypted
+                            & Private</span>
+                    </div>
                 </div>
             </section>
 
@@ -2303,9 +2353,15 @@
                     <div class="bar"></div>
                 </div>
 
-                <div style="display: flex; gap: 0.8rem; align-items: center;">
-                    <button id="startBtn" class="btn-circle btn-start" title="Start Listening">▶</button>
-                    <button id="stopBtn" class="btn-circle btn-stop" disabled title="Stop Session">■</button>
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+                    <div style="display: flex; gap: 0.8rem; align-items: center;">
+                        <button id="startBtn" class="btn-circle btn-start" title="Start Listening">▶</button>
+                        <button id="stopBtn" class="btn-circle btn-stop" disabled title="Stop Session">■</button>
+                    </div>
+                    <div
+                        style="font-size: 0.65rem; color: var(--text-secondary); letter-spacing: 1px; font-weight: 700; text-transform: uppercase; opacity: 0.7;">
+                        Guiding you in the moment
+                    </div>
                 </div>
 
                 <div id="statusText"
