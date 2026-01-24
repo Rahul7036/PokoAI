@@ -2636,13 +2636,26 @@
         stopBtn.addEventListener('click', forceStopApp);
 
 
+        function scrollToBottom() {
+            const feed = document.getElementById('copilot-feed');
+            const threshold = 150; // px from bottom to trigger auto-scroll
+            const isNearBottom = (feed.scrollHeight - feed.scrollTop - feed.clientHeight) < threshold;
+
+            if (isNearBottom) {
+                feed.scrollTo({
+                    top: feed.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
+        }
+
         let currentBubble = null;
         function updateTranscript(text, isFinal) {
             const feed = document.getElementById('copilot-feed');
             if (!currentBubble) {
                 currentBubble = document.createElement('div');
                 currentBubble.className = 'bubble bubble-interviewer';
-                feed.prepend(currentBubble); // Prepend for Focus-First (Reverse chronological)
+                feed.appendChild(currentBubble); // Append to bottom
             }
             currentBubble.innerHTML = `<span class="${isFinal ? '' : 'interim'}">${text}</span>`;
 
@@ -2650,12 +2663,13 @@
                 currentBubble.classList.add('final');
                 currentBubble = null;
             }
+            scrollToBottom();
         }
 
         function addAiCard(q, a) {
             const feed = document.getElementById('copilot-feed');
             const card = document.createElement('div');
-            card.className = 'ai-card glass new-arrival'; // Added new-arrival class
+            card.className = 'ai-card glass new-arrival';
             card.innerHTML = `<div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1rem;">
                 <span class="live-pulse" style="background:var(--accent-cyan); color:black; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:800; text-transform:uppercase;">Intelligent Insight</span>
                 <div style="color: var(--accent-cyan); font-weight: 700; font-size: 1.1rem;">${q}</div>
@@ -2665,12 +2679,13 @@
                 <span>GENERATED @ ${new Date().toLocaleTimeString()}</span>
                 <span>CONFIDENCE: 98.4%</span>
             </div>`;
-            feed.prepend(card);
+            feed.appendChild(card); // Append to bottom
 
             // Trigger animation
             requestAnimationFrame(() => {
                 card.style.transform = 'translateX(0) scale(1)';
                 card.style.opacity = '1';
+                scrollToBottom();
             });
         }
 
