@@ -22,7 +22,7 @@ load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY", "super_secret_key_change_this") 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 
-GOOGLE_CLIENT_ID = "595917889227-8js5rpugt95nnrvqjlbodobea128f86i.apps.googleusercontent.com"
+GOOGLE_CLIENT_ID = "595917889227-2b4948v2eove1lrv5fjptpoardnu5l69.apps.googleusercontent.com"
 
 # OAuth2 Scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
