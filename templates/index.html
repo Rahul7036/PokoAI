@@ -840,31 +840,18 @@
 
         /* --- COPILOT COMPONENTS --- */
         .bubble {
-            background: rgba(2, 6, 23, 0.4);
-            border: 1px solid var(--glass-border);
-            padding: 1.2rem 1.5rem;
-            border-radius: 12px;
-            max-width: 90%;
-            font-size: 1rem;
-            line-height: 1.6;
+            background: transparent;
+            border: none;
+            padding: 0.5rem 0;
+            max-width: 100%;
+            font-size: 0.9rem;
+            line-height: 1.4;
             align-self: flex-start;
             animation: slideIn 0.3s ease-out;
             color: var(--text-secondary);
             position: relative;
-            margin-bottom: 2rem;
-        }
-
-        .bubble-interviewer::before {
-            content: 'Interviewer';
-            position: absolute;
-            top: -1.4rem;
-            left: 0;
-            font-size: 0.7rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 1.2px;
-            color: var(--accent-cyan);
-            opacity: 0.8;
+            margin-bottom: 0.5rem;
+            opacity: 0.7;
         }
 
         .bubble.final {
