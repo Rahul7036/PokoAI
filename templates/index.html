@@ -866,24 +866,53 @@
         }
 
         .ai-card {
-            background: linear-gradient(135deg, rgba(6, 182, 212, 0.08), rgba(139, 92, 246, 0.08));
-            border: 1px solid rgba(6, 182, 212, 0.3);
-            padding: 2rem;
-            border-radius: 20px;
-            margin: 2rem 0;
-            animation: slideInLeft 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            line-height: 1.8;
-            transition: all 0.3s ease;
-            cursor: pointer;
-            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.3);
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(6, 182, 212, 0.4);
+            padding: 2.2rem;
+            border-radius: 24px;
+            margin: 1.5rem 0;
+            animation: slideInUp 0.6s var(--spring-easing);
+            line-height: 1.6;
+            transition: all 0.4s var(--spring-easing);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
             width: 100%;
+            position: relative;
         }
 
-        .ai-card:hover {
-            border-color: var(--accent-cyan);
-            background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(139, 92, 246, 0.2));
-            transform: translateY(-5px);
-            box-shadow: 0 15px 40px rgba(6, 182, 212, 0.15);
+        .ai-card.dimmed {
+            opacity: 0.4;
+            filter: blur(1px);
+            transform: scale(0.98);
+        }
+
+        .talking-point {
+            background: rgba(6, 182, 212, 0.1);
+            border-left: 3px solid var(--accent-cyan);
+            padding: 0.8rem 1.2rem;
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--accent-cyan);
+            border-radius: 4px 12px 12px 4px;
+        }
+
+        .script-text {
+            font-size: 1.2rem;
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            letter-spacing: -0.2px;
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
 
         @keyframes slideIn {
@@ -2673,25 +2702,36 @@
 
         function addAiCard(q, a) {
             const feed = document.getElementById('copilot-feed');
-            const card = document.createElement('div');
-            card.className = 'ai-card glass new-arrival';
-            card.innerHTML = `<div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1rem;">
-                <span class="live-pulse" style="background:var(--accent-cyan); color:black; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:800; text-transform:uppercase;">Intelligent Insight</span>
-                <div style="color: var(--accent-cyan); font-weight: 700; font-size: 1.1rem;">${q}</div>
-            </div>
-            <div class="ai-content mono" style="font-size: 0.95rem; line-height:1.6; color: var(--text-primary);">${marked.parse(a)}</div>
-            <div style="margin-top: 1rem; border-top: 1px solid var(--glass-border); padding-top: 0.8rem; font-size:0.65rem; color: var(--text-secondary); display:flex; justify-content:space-between;" class="mono">
-                <span>GENERATED @ ${new Date().toLocaleTimeString()}</span>
-                <span>CONFIDENCE: 98.4%</span>
-            </div>`;
-            feed.appendChild(card); // Append to bottom
 
-            // Trigger animation
-            requestAnimationFrame(() => {
-                card.style.transform = 'translateX(0) scale(1)';
-                card.style.opacity = '1';
+            // Dim existing cards for focus
+            document.querySelectorAll('.ai-card').forEach(c => c.classList.add('dimmed'));
+
+            const card = document.createElement('div');
+            card.className = 'ai-card glass';
+
+            // Intelligent grouping: Extract first sentence or bullet as "Talking Point" if possible
+            const plainText = a.replace(/[#*`]/g, '');
+            const firstSentence = plainText.split(/[.!?]/)[0];
+
+            card.innerHTML = `
+                <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 2px; color: var(--accent-cyan); margin-bottom: 0.5rem; font-weight: 800; opacity: 0.6;">Detected Question</div>
+                <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 1.5rem; color: white;">"${q}"</div>
+                
+                <div class="talking-point mono">
+                    <span style="display:block; font-size: 0.6rem; opacity: 0.7; margin-bottom: 0.2rem;">CORE CONCEPT:</span>
+                    ${firstSentence}...
+                </div>
+
+                <div class="script-text">
+                    ${marked.parse(a)}
+                </div>
+            `;
+            feed.appendChild(card);
+
+            // Scroll with slight delay for the slide animation
+            setTimeout(() => {
                 scrollToBottom();
-            });
+            }, 100);
         }
 
         function floatTo16BitPCM(input) {
