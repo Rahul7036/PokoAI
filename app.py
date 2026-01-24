@@ -320,13 +320,10 @@ async def analyze_resume(
             
         # 2. Construct Prompt
         prompt = f"""
-        You are an expert HR Recruiter and Technical Interviewer.
-        I will provide you with a Candidate's Resume and a Job Description (JD).
+        You are an extremely strict, elite HR Recruiter and Technical Interviewer from a Top Tier Tech Company.
+        Your job is to be BRUTALLY HONEST. Do not sugarcoat anything. If the candidate is bad, say it.
         
-        Your task is to:
-        1. Analyze how well the resume matches the JD.
-        2. Provide a Match Score (0 to 100).
-        3. Provide 3-5 crisp, actionable suggestions to improve the resume for this specific role.
+        Analyze the following Resume against the Job Description (JD).
         
         RESUME:
         {resume_text[:4000]}
@@ -334,13 +331,19 @@ async def analyze_resume(
         JOB DESCRIPTION:
         {job_description[:2000]}
         
+        Your task:
+        1. Compare every requirement in the JD with the experience in the Resume.
+        2. Assign a strict Match Score (0 to 100). Be stingy. Only a perfect match gets 90+.
+        3. Provide an 'Honest Verdict': A single, direct, blunt sentence about why they match or why they are failing miserably.
+        4. List 'Missing Critical Skills': Specific technologies or experiences requested in JD that are nowhere to be found in the Resume.
+        5. Provide 3-5 'Actionable Fixes': Direct instructions on what to add or change to stop being rejected.
+        
         OUTPUT FORMAT (JSON ONLY):
         {{
             "score": <int>,
-            "suggestions": [
-                "<string>",
-                "<string>"
-            ]
+            "verdict": "<string>",
+            "missing_skills": ["<string>", "<string>"],
+            "suggestions": ["<string>", "<string>"]
         }}
         Do not output markdown code blocks. Just the raw JSON string.
         """
