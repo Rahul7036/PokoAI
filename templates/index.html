@@ -1609,9 +1609,9 @@
     <div id="limit-overlay" class="overlay hidden">
         <div class="modal-card glass" style="max-width: 500px; text-align: center; padding: 3rem;">
             <div style="font-size: 4rem; margin-bottom: 1.5rem;">⏳</div>
-            <h3 style="font-size: 2rem; margin-bottom: 1rem;">Limit Reached</h3>
-            <p style="color: var(--text-secondary); margin-bottom: 2rem;">You've used your 5 minutes of free Copilot
-                time. To extend your access or upgrade your plan, please contact the admin team.</p>
+            <h3 style="font-size: 2rem; margin-bottom: 1rem;">Credit Limit Reached</h3>
+            <p id="limit-message" style="color: var(--text-secondary); margin-bottom: 2rem;">You've used your allotted
+                session time. To extend your access or upgrade your plan, please contact the admin team.</p>
 
             <div class="glass" style="padding: 1.5rem; margin-bottom: 2rem; border-color: var(--accent-cyan);">
                 <div style="font-weight: 700; color: var(--accent-cyan); margin-bottom: 0.5rem;">Contact for Extension:
@@ -2569,6 +2569,7 @@
         startBtn.addEventListener('click', async () => {
             const remaining = await updateCredits();
             if (remaining <= 0) {
+                document.getElementById('limit-message').innerText = "You have no remaining credits. Please contact the admin team for extension.";
                 document.getElementById('limit-overlay').classList.remove('hidden');
                 return;
             }
@@ -2589,6 +2590,7 @@
                         const data = await res.json();
                         if (!res.ok) {
                             forceStopApp();
+                            document.getElementById('limit-message').innerText = "Session limit reached. To extend your access, please contact the admin team.";
                             document.getElementById('limit-overlay').classList.remove('hidden');
                         } else {
                             const mins = Math.floor(data.remaining_seconds / 60);
