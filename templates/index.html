@@ -2638,13 +2638,41 @@
                     if (data.type === 'answer') addAiCard(data.question, data.answer);
                 };
                 audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-                globalStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                // Enhanced Mobile Mic Constraints
+                const constraints = {
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        sampleRate: 16000
+                    }
+                };
+
+                globalStream = await navigator.mediaDevices.getUserMedia(constraints);
                 input = audioContext.createMediaStreamSource(globalStream);
+
+                // Volume Meter for visual feedback
+                const analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                input.connect(analyser);
+
                 processor = audioContext.createScriptProcessor(4096, 1, 1);
                 processor.onaudioprocess = (e) => {
                     if (ws && ws.readyState === WebSocket.OPEN) {
                         const inputData = e.inputBuffer.getChannelData(0);
                         ws.send(floatTo16BitPCM(inputData));
+
+                        // Dynamic Waveform Intensity
+                        const buffer = new Uint8Array(analyser.frequencyBinCount);
+                        analyser.getByteFrequencyData(buffer);
+                        const volume = buffer.reduce((a, b) => a + b) / buffer.length;
+                        const bars = document.querySelectorAll('.bar');
+                        bars.forEach((bar, i) => {
+                            const scale = 0.5 + (volume / 128);
+                            bar.style.transform = `scaleY(${scale})`;
+                            bar.style.background = volume > 40 ? 'var(--accent-cyan)' : 'rgba(6, 182, 212, 0.3)';
+                        });
                     }
                 };
                 input.connect(processor); processor.connect(audioContext.destination);
