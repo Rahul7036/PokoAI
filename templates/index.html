@@ -2183,6 +2183,15 @@
                         AI Copilot is active. Start speaking to receive real-time assistance.
                     </div>
                 </div>
+
+                <!-- AI THINKING STATE -->
+                <div id="ai-thinking" class="ai-thinker">
+                    <div class="think-dot"></div>
+                    <div class="think-dot"></div>
+                    <div class="think-dot"></div>
+                    <span style="margin-left: 10px; font-weight: 800; letter-spacing: 1px;">AI ENHANCING
+                        REPLIES...</span>
+                </div>
             </div>
         </div>
     </div>
@@ -2635,7 +2644,13 @@
                 ws.onmessage = (e) => {
                     const data = JSON.parse(e.data);
                     if (data.type === 'transcript') updateTranscript(data.transcript, data.is_final);
-                    if (data.type === 'answer') addAiCard(data.question, data.answer);
+                    if (data.type === 'answer') {
+                        document.getElementById('ai-thinking').classList.remove('active');
+                        addAiCard(data.question, data.answer);
+                    }
+                    if (data.type === 'status' && data.message === 'Listening...') {
+                        document.getElementById('ai-thinking').classList.add('active');
+                    }
                 };
                 audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
 
