@@ -2383,9 +2383,39 @@
                         0</div>
                 </div>
                 <h2 style="font-size: 2.5rem;">Match Score</h2>
-                <ul id="suggestions-list"
-                    style="text-align: left; max-width: 600px; margin: 2rem auto; color: var(--text-secondary); line-height: 2;">
-                </ul>
+
+                <!-- Honest Verdict -->
+                <div id="verdict-container" class="glass"
+                    style="margin: 2rem auto; padding: 1.5rem; max-width: 700px; border-color: rgba(6, 182, 212, 0.3); background: rgba(6, 182, 212, 0.05);">
+                    <div
+                        style="font-size: 0.75rem; color: var(--accent-cyan); text-transform: uppercase; font-weight: 800; letter-spacing: 1px; margin-bottom: 0.5rem;">
+                        Honest Recruiter Verdict</div>
+                    <p id="review-verdict"
+                        style="font-size: 1.1rem; color: white; font-weight: 500; font-style: italic;"></p>
+                </div>
+
+                <div
+                    style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; text-align: left; max-width: 800px; margin: 2rem auto;">
+                    <!-- Missing Skills -->
+                    <div class="glass" style="padding: 1.5rem; border-color: rgba(239, 68, 68, 0.3);">
+                        <h4
+                            style="color: var(--danger); margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;">
+                            <span>⚠️</span> Missing Skill Gaps
+                        </h4>
+                        <ul id="missing-skills-list"
+                            style="color: var(--text-secondary); line-height: 1.6; padding-left: 1.2rem;"></ul>
+                    </div>
+
+                    <!-- Suggestions -->
+                    <div class="glass" style="padding: 1.5rem; border-color: rgba(16, 185, 129, 0.3);">
+                        <h4
+                            style="color: var(--success); margin-bottom: 1rem; display: flex; align-items: center; gap: 8px;">
+                            <span>💡</span> Actionable Fixes
+                        </h4>
+                        <ul id="suggestions-list"
+                            style="color: var(--text-secondary); line-height: 1.6; padding-left: 1.2rem;"></ul>
+                    </div>
+                </div>
                 <button class="btn-outline" style="margin-top: 2rem;" onclick="resetReview()">New Scan</button>
             </div>
         </div>
@@ -3004,8 +3034,36 @@
                 const data = await res.json();
                 document.getElementById('review-input-section').classList.add('hidden');
                 document.getElementById('review-results-section').classList.remove('hidden');
+
+                // Update Score & Color
                 document.getElementById('score-text').innerText = data.score;
-                document.getElementById('score-circle').setAttribute('stroke-dasharray', `${data.score}, 100`);
+                const scoreCircle = document.getElementById('score-circle');
+                scoreCircle.setAttribute('stroke-dasharray', `${data.score}, 100`);
+
+                // Honest Verdict
+                document.getElementById('review-verdict').innerText = `"${data.verdict}"`;
+
+                // Color coding based on score
+                const verdictContainer = document.getElementById('verdict-container');
+                if (data.score < 40) {
+                    scoreCircle.setAttribute('stroke', 'var(--danger)');
+                    verdictContainer.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                    verdictContainer.style.background = 'rgba(239, 68, 68, 0.05)';
+                } else if (data.score < 75) {
+                    scoreCircle.setAttribute('stroke', '#f59e0b');
+                    verdictContainer.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+                    verdictContainer.style.background = 'rgba(245, 158, 11, 0.05)';
+                } else {
+                    scoreCircle.setAttribute('stroke', 'var(--accent-cyan)');
+                    verdictContainer.style.borderColor = 'rgba(6, 182, 212, 0.4)';
+                    verdictContainer.style.background = 'rgba(6, 182, 212, 0.05)';
+                }
+
+                // Populating lists
+                document.getElementById('missing-skills-list').innerHTML = data.missing_skills.length > 0
+                    ? data.missing_skills.map(s => `<li>${s}</li>`).join('')
+                    : '<li style="color: var(--success);">No major gaps found!</li>';
+
                 document.getElementById('suggestions-list').innerHTML = data.suggestions.map(s => `<li>${s}</li>`).join('');
             } catch (e) { alert("Analysis failed."); }
         }
@@ -3018,6 +3076,9 @@
             // Clear results
             document.getElementById('score-text').innerText = '0';
             document.getElementById('score-circle').setAttribute('stroke-dasharray', `0, 100`);
+            document.getElementById('score-circle').setAttribute('stroke', 'var(--accent-cyan)');
+            document.getElementById('review-verdict').innerText = '';
+            document.getElementById('missing-skills-list').innerHTML = '';
             document.getElementById('suggestions-list').innerHTML = '';
 
             document.getElementById('review-results-section').classList.add('hidden');
