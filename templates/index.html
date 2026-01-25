@@ -1630,16 +1630,41 @@
                 justify-content: center;
             }
 
-            /* Modals */
+            /* Modals - Aggressive Mobile Fix */
+            .overlay:not(.hidden) {
+                padding: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                overflow-y: hidden !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+            }
+
             .modal-card {
-                padding: 2rem 1.5rem !important;
-                margin: 1rem;
-                max-height: 90vh;
+                padding: 1.5rem !important;
+                margin: 0 !important;
+                /* Cancel global margins */
+                width: calc(100vw - 40px) !important;
+                max-width: 400px !important;
+                max-height: 85vh;
                 overflow-y: auto;
+                border-radius: 20px !important;
+                position: relative !important;
+                left: auto !important;
+                right: auto !important;
+                transform: none !important;
+                flex-shrink: 0 !important;
             }
 
             .modal-card h2 {
-                font-size: 1.5rem !important;
+                font-size: 1.6rem !important;
+                margin-bottom: 1.5rem !important;
             }
 
             /* Stat pills */
