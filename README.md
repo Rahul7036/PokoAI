@@ -1,4 +1,4 @@
-# 🎯 PokoAI - Real-Time Interview Copilot
+# 🎯 PrepAI - Real-Time Interview Copilot
 
 A production-ready AI-powered interview assistant that listens to live interviews, understands questions, and provides intelligent real-time suggestions to help candidates perform their best.
 
@@ -38,7 +38,7 @@ A production-ready AI-powered interview assistant that listens to live interview
 1. **Clone the repository**
    ```bash
    git clone <your-repo-url>
-   cd PokoAIMVP
+   cd PrepAIMVP
    ```
 
 2. **Create and activate virtual environment**
@@ -66,7 +66,7 @@ A production-ready AI-powered interview assistant that listens to live interview
    API_KEY=your_google_api_key
    
    # Database
-   DB_STRING=postgresql://username:password@localhost:5432/pokoai
+   DB_STRING=postgresql://username:password@localhost:5432/prepai
    
    # Optional
    HUG_KEY=your_huggingface_key
@@ -109,7 +109,7 @@ A production-ready AI-powered interview assistant that listens to live interview
    ```bash
    # Clone the repository
    git clone <your-repo-url>
-   cd PokoAI
+   cd PrepAI
 
    # Copy your Google service account JSON to credentials folder
    mkdir credentials
@@ -146,7 +146,7 @@ A production-ready AI-powered interview assistant that listens to live interview
 
 ```bash
 # Build the image
-docker build -t pokoai:latest .
+docker build -t prepai:latest .
 
 # Run the container
 docker run -d \
@@ -154,8 +154,8 @@ docker run -d \
   -e DB_STRING="your_db_string" \
   -e API_KEY="your_api_key" \
   -v $(pwd)/credentials:/app/credentials \
-  --name pokoai \
-  pokoai:latest
+  --name prepai \
+  prepai:latest
 ```
 
 ### Production Deployment
@@ -164,12 +164,12 @@ For cloud deployment (GCP, AWS, Azure):
 
 ```bash
 # Tag and push to container registry
-docker tag pokoai:latest gcr.io/your-project/pokoai:latest
-docker push gcr.io/your-project/pokoai:latest
+docker tag prepai:latest gcr.io/your-project/prepai:latest
+docker push gcr.io/your-project/prepai:latest
 
 # Deploy to Cloud Run (GCP example)
-gcloud run deploy pokoai \
-  --image gcr.io/your-project/pokoai:latest \
+gcloud run deploy prepai \
+  --image gcr.io/your-project/prepai:latest \
   --platform managed \
   --region us-central1 \
   --allow-unauthenticated
@@ -180,7 +180,7 @@ gcloud run deploy pokoai \
 ## 📂 Project Structure
 
 ```
-PokoAIMVP/
+PrepAIMVP/
 ├── app.py                  # FastAPI application & routes
 ├── auth.py                 # JWT authentication logic
 ├── models.py               # SQLAlchemy User model
@@ -207,7 +207,7 @@ PokoAIMVP/
 ### Approving a User (Admin)
 ```sql
 -- Connect to your PostgreSQL database
-psql -U username -d pokoai
+psql -U username -d prepai
 
 -- Activate a user
 UPDATE users SET is_active = true WHERE email = 'user@example.com';
@@ -305,7 +305,7 @@ source venv/bin/activate  # macOS/Linux
 **Solution**: Verify `DB_STRING` in `.env` and ensure PostgreSQL is running:
 ```bash
 # Test connection
-psql -U username -d pokoai
+psql -U username -d prepai
 ```
 
 ### Google OAuth `invalid_client` error
@@ -324,8 +324,8 @@ Proprietary - All rights reserved.
 
 ## 👨‍💻 Author
 
-**Poko AI Team**  
-For support or inquiries: pokoai0206@gmail.com
+**PrepAI Team**  
+For support or inquiries: prepai0206@gmail.com
 
 ---
 

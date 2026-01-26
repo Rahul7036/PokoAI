@@ -116,7 +116,7 @@ class GoogleLogin(BaseModel):
     token: str
 
 # --- Auth Routes ---
-BETA_INVITE_CODE = "POKO2026"
+BETA_INVITE_CODE = "PREPAI2026"
 
 @app.post("/auth/register")
 def register(user: UserRegister, db: Session = Depends(get_db)):
