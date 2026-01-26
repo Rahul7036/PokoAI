@@ -2799,11 +2799,57 @@
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    alert("Registration request submitted! Your account is pending manual approval. We'll check it soon.");
-                    toggleAuthMode(false); // Back to login
+                    // Show OTP Modal instead of manual approval alert
+                    document.getElementById('otp-email-display').innerText = email;
+                    document.getElementById('login-overlay').classList.add('hidden');
+                    document.getElementById('otp-overlay').classList.remove('hidden');
+                    // alert("OTP sent! Please check your email.");
                 }
                 else { document.getElementById('loginError').innerText = data.detail; }
             } catch (e) { document.getElementById('loginError').innerText = "Signup Failed"; }
+        }
+
+        async function handleVerifyOtp() {
+            const email = document.getElementById('otp-email-display').innerText;
+            const otp = document.getElementById('otp-input').value;
+            const errorEl = document.getElementById('otp-error');
+
+            if (!otp) { errorEl.innerText = "Please enter the OTP"; return; }
+            errorEl.innerText = "Verifying...";
+
+            try {
+                const res = await fetch('/auth/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, otp })
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    localStorage.setItem('token', data.access_token);
+                    document.getElementById('otp-overlay').classList.add('hidden');
+                    checkAuth();
+                    // alert("Account verified successfully!");
+                } else {
+                    errorEl.innerText = data.detail || "Verification failed";
+                }
+            } catch (e) {
+                errorEl.innerText = "Verification error";
+            }
+        }
+
+        async function handleResendOtp() {
+            const email = document.getElementById('otp-email-display').innerText;
+            if (!email) return;
+            try {
+                const res = await fetch('/auth/resend-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, otp: "000000" })
+                });
+                if (res.ok) alert("New OTP sent to your email!");
+                else alert("Failed to resend OTP");
+            } catch (e) { alert("Error resending OTP"); }
         }
 
         async function handleCredentialResponse(resp) {
@@ -3172,6 +3218,31 @@
 
         window.onload = checkAuth;
     </script>
+    <!-- OTP Verification Overlay -->
+    <div id="otp-overlay" class="overlay hidden" style="z-index: 10000;">
+        <div class="glass modal-card entry-animate">
+            <h2 style="font-size: 2rem; margin-bottom: 2rem;">Verify Email</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+                We sent a 6-digit code to <span id="otp-email-display"
+                    style="color: var(--accent-cyan); font-weight: 700;"></span>.
+                Enter it below to activate your account.
+            </p>
+            <input type="text" id="otp-input" placeholder="Enter 6-digit OTP"
+                style="text-align: center; font-size: 1.5rem; letter-spacing: 5px; margin-bottom: 2rem; font-weight: 700;">
+
+            <button onclick="handleVerifyOtp()" class="btn-primary" style="width: 100%; margin-bottom: 1rem;">Verify &
+                Login</button>
+
+            <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                Didn't receive code? <a href="javascript:void(0)" onclick="handleResendOtp()"
+                    style="color: var(--accent-cyan);">Resend OTP</a>
+            </div>
+            <p id="otp-error" style="color: var(--danger); margin-top: 1rem;"></p>
+            <button class="btn-outline" style="margin-top: 1rem; width: 100%; padding: 10px;"
+                onclick="document.getElementById('otp-overlay').classList.add('hidden'); document.getElementById('login-overlay').classList.remove('hidden');">Back
+                to Login</button>
+        </div>
+    </div>
 </body>
 
 </html>

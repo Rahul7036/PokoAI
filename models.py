@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String
+from sqlalchemy import Boolean, Column, Integer, String, DateTime
 from database import Base
 
 class User(Base):
@@ -11,5 +11,9 @@ class User(Base):
     is_active = Column(Boolean, default=False)
     full_name = Column(String, nullable=True)
     profession = Column(String, nullable=True)
-    time_limit_seconds = Column(Integer, default=300) # 5 minutes free
+    time_limit_seconds = Column(Integer, default=1200) # 20 minutes free
     time_used_seconds = Column(Integer, default=0)
+    
+    # OTP Verification
+    otp_code = Column(String, nullable=True)
+    otp_expires_at = Column(DateTime, nullable=True)
