@@ -5,6 +5,13 @@ import json
 import logging
 import threading
 import re
+import smtplib
+import random
+import string
+import bcrypt
+from datetime import datetime, timedelta
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
@@ -79,7 +86,7 @@ def ensure_schema_updates():
     with engine.connect() as conn:
         # Check for time_limit_seconds
         try:
-            conn.execute(text("ALTER TABLE users ADD COLUMN time_limit_seconds INTEGER DEFAULT 300"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN time_limit_seconds INTEGER DEFAULT 1200"))
             logger.info("Added time_limit_seconds column")
         except Exception:
             pass
@@ -88,6 +95,20 @@ def ensure_schema_updates():
         try:
             conn.execute(text("ALTER TABLE users ADD COLUMN time_used_seconds INTEGER DEFAULT 0"))
             logger.info("Added time_used_seconds column")
+        except Exception:
+            pass
+            
+        # Check for otp_code
+        try:
+            conn.execute(text("ALTER TABLE users ADD COLUMN otp_code VARCHAR"))
+            logger.info("Added otp_code column")
+        except Exception:
+            pass
+
+        # Check for otp_expires_at
+        try:
+            conn.execute(text("ALTER TABLE users ADD COLUMN otp_expires_at DATETIME"))
+            logger.info("Added otp_expires_at column")
         except Exception:
             pass
         conn.commit()
@@ -115,6 +136,42 @@ class PasswordChange(BaseModel):
 class GoogleLogin(BaseModel):
     token: str
 
+class OTPVerify(BaseModel):
+    email: str
+    otp: str
+
+def send_otp_email(to_email: str, otp: str):
+    sender_email = os.getenv("EMAIL_USER")
+    sender_password = os.getenv("EMAIL_PASS")
+    
+    if not sender_email or not sender_password:
+        logger.error("EMAIL_USER or EMAIL_PASS not set")
+        return False
+
+    msg = MIMEMultipart()
+    msg['From'] = f"PokoAI <{sender_email}>"
+    msg['To'] = to_email
+    msg['Subject'] = "Your OTP Code"
+
+    html = f"""
+      <h2>PokoAI Email Verification</h2>
+      <p>Your OTP is:</p>
+      <h1>{otp}</h1>
+      <p>This code expires in 10 minutes.</p>
+    """
+    msg.attach(MIMEText(html, 'html'))
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send email: {e}")
+        return False
+
 # --- Auth Routes ---
 BETA_INVITE_CODE = "PRAPAI2026"
 
@@ -125,21 +182,89 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Email already registered")
     
     hashed_password = get_password_hash(user.password)
+    
+    # Generate OTP
+    otp = ''.join(random.choices(string.digits, k=6))
+    otp_hash = bcrypt.hashpw(otp.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    otp_expires = datetime.utcnow() + timedelta(minutes=10)
+
     new_user = models.User(
         email=user.email, 
         hashed_password=hashed_password,
         full_name=user.fullName,
         profession=user.profession,
-        is_active=False # Accout pending approval
+        is_active=False, # Accout pending approval
+        otp_code=otp_hash,
+        otp_expires_at=otp_expires
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
     
+    # Send OTP Email
+    email_sent = send_otp_email(user.email, otp)
+    if not email_sent:
+        logger.error("Failed to send OTP email")
+        # Ensure we don't rollback user creation, but maybe warn?
+        # Ideally, we might want to delete user if email fails, but for now let's keep it.
+
     # We still return a token so they can see the "pending" message if we want,
     # but the get_current_user dependency or the login route will block them.
     access_token = create_access_token(data={"sub": new_user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": "bearer", "message": "OTP sent to email"}
+
+@app.post("/auth/verify-otp")
+def verify_otp(data: OTPVerify, db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.email == data.email).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found")
+        
+    if user.is_active:
+        return {"message": "Account already active"}
+        
+    if not user.otp_code:
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+    
+    # Verify OTP Hash
+    try:
+        if not bcrypt.checkpw(data.otp.encode('utf-8'), user.otp_code.encode('utf-8')):
+             raise HTTPException(status_code=400, detail="Invalid OTP")
+    except Exception:
+        # Fallback for old plain-text OTPs if any exist (optional, but safer during transition)
+        if user.otp_code != data.otp:
+             raise HTTPException(status_code=400, detail="Invalid OTP")
+        
+    if not user.otp_expires_at or user.otp_expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="OTP Expired")
+        
+    user.is_active = True
+    user.otp_code = None
+    user.otp_expires_at = None
+    db.commit()
+    
+    access_token = create_access_token(data={"sub": user.email})
+    return {"message": "Account verified successfully", "access_token": access_token, "token_type": "bearer"}
+
+@app.post("/auth/resend-otp")
+def resend_otp(data: OTPVerify, db: Session = Depends(get_db)):
+    # We only need email from data
+    user = db.query(models.User).filter(models.User.email == data.email).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found")
+        
+    if user.is_active:
+        return {"message": "Account already active"}
+        
+    otp = ''.join(random.choices(string.digits, k=6))
+    otp_hash = bcrypt.hashpw(otp.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    otp_expires = datetime.utcnow() + timedelta(minutes=10)
+    
+    user.otp_code = otp_hash
+    user.otp_expires_at = otp_expires
+    db.commit()
+    
+    send_otp_email(user.email, otp)
+    return {"message": "OTP resent successfully"}
 
 @app.post("/auth/login")
 def login(user: UserLogin, db: Session = Depends(get_db)):
@@ -151,7 +276,7 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Invalid credentials")
         
     if not db_user.is_active:
-        raise HTTPException(status_code=403, detail="Account pending approval. Please contact support.")
+        raise HTTPException(status_code=403, detail="Account not verified. Please check your email for the OTP code.")
 
     access_token = create_access_token(data={"sub": db_user.email})
     return {"access_token": access_token, "token_type": "bearer"}
