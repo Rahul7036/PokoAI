@@ -41,6 +41,24 @@
             color: var(--text-primary);
             overflow-x: hidden;
             scroll-behavior: smooth;
+            transition: opacity 0.5s ease;
+        }
+
+        /* --- GLOBAL STEALTH MODE --- */
+        body.stealth-active {
+            opacity: 0.15 !important;
+            filter: grayscale(1) contrast(0.8);
+            cursor: none;
+        }
+
+        body.stealth-active:hover {
+            opacity: 0.4 !important;
+        }
+
+        body.stealth-active * {
+            box-shadow: none !important;
+            text-shadow: none !important;
+            animation: none !important;
         }
 
         h1,
@@ -677,6 +695,151 @@
         .header-center #statusText {
             font-size: 0.85rem;
             min-width: 80px;
+        }
+
+        @keyframes v2shimmer {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            100% {
+                background-position: 200% 50%;
+            }
+        }
+
+        /* --- V2 ROADMAP STYLES --- */
+        .roadmap-container {
+            padding: 4rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .roadmap-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        @media (max-width: 768px) {
+            .roadmap-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .roadmap-card {
+                padding: 1.5rem;
+            }
+
+            .roadmap-badge {
+                position: static;
+                display: inline-block;
+                margin-bottom: 1rem;
+            }
+        }
+
+        .roadmap-card {
+            padding: 2.5rem;
+            position: relative;
+            overflow: hidden;
+            border-radius: 24px;
+        }
+
+        .roadmap-card.v2 {
+            border-color: var(--accent-glow);
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.05), transparent);
+        }
+
+        .roadmap-badge {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .badge-live {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        .badge-loading {
+            background: rgba(139, 92, 246, 0.1);
+            color: var(--accent-glow);
+            border: 1px solid var(--accent-glow);
+            animation: pulse-glow 2s infinite;
+        }
+
+        @keyframes pulse-glow {
+            0% {
+                box-shadow: 0 0 0px var(--accent-glow);
+            }
+
+            50% {
+                box-shadow: 0 0 15px var(--accent-glow);
+            }
+
+            100% {
+                box-shadow: 0 0 0px var(--accent-glow);
+            }
+        }
+
+        .roadmap-list {
+            list-style: none;
+            margin-top: 1.5rem;
+        }
+
+        .roadmap-list li {
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 768px) {
+            .roadmap-list li {
+                font-size: 0.85rem;
+                align-items: flex-start;
+            }
+
+            .roadmap-list li span:first-child {
+                flex-shrink: 0;
+                margin-top: 2px;
+            }
+        }
+
+        .roadmap-list li i {
+            font-size: 1.2rem;
+        }
+
+        .roadmap-list li.done {
+            color: white;
+        }
+
+        .roadmap-list li.done span {
+            color: var(--success);
+        }
+
+        .roadmap-list li.pending span {
+            color: var(--accent-cyan);
+        }
+
+        .v2-status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            padding: 6px 14px;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            margin-bottom: 2rem;
         }
 
         .dash-card {
@@ -1973,6 +2136,63 @@
                 </div>
             </section>
 
+            <!-- V2 ROADMAP SECTION -->
+            <section id="roadmap" class="roadmap-container">
+                <div style="text-align: center; margin-bottom: 4rem;">
+                    <div class="v2-status-pill">
+                        <span class="live-pulse"
+                            style="width: 8px; height: 8px; background: var(--accent-emerald); border-radius: 50%;"></span>
+                        <span>V1.0 Stable Live</span>
+                        <span style="margin: 0 10px; opacity: 0.3;">|</span>
+                        <span class="live-pulse"
+                            style="width: 8px; height: 8px; background: var(--accent-glow); border-radius: 50%; animation-duration: 1s;"></span>
+                        <span style="color: var(--accent-glow); font-weight: 800;">V2.0 Project Stealth
+                            Loading...</span>
+                    </div>
+                    <h2 class="section-title">The Evolution of <span style="color: var(--accent-cyan);">Interview
+                            Intelligence</span></h2>
+                    <p style="color: var(--text-secondary); max-width: 600px; margin: 0 auto;">PrapAI isn't just a tool;
+                        it's a mission-critical platform. We're moving from high-speed assistance to deep analytical
+                        dominance.</p>
+                </div>
+
+                <div class="roadmap-grid">
+                    <!-- Current Version -->
+                    <div class="glass roadmap-card">
+                        <span class="roadmap-badge badge-live">v1.0 Live</span>
+                        <h3 style="font-size: 1.8rem; margin-bottom: 1rem;">Core Terminal</h3>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem;">The foundation of PrapAI. Reliable,
+                            fast, and interview-proven.</p>
+                        <ul class="roadmap-list">
+                            <li class="done"><span>✓</span> Real-time AI Copilot</li>
+                            <li class="done"><span>✓</span> Smart Resume Matcher</li>
+                            <li class="done"><span>✓</span> AI Prep-Deck Integration</li>
+                            <li class="done"><span>✓</span> Mobile Responsive Web App</li>
+                        </ul>
+                    </div>
+
+                    <!-- Upcoming Version -->
+                    <div class="glass roadmap-card v2">
+                        <span class="roadmap-badge badge-loading">v2.0 Loading...</span>
+                        <h3 style="font-size: 1.8rem; margin-bottom: 1rem;">Project Stealth</h3>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem;">Advanced invisibility and deep
+                            system integration for total dominance.</p>
+                        <ul class="roadmap-list">
+                            <li class="pending"><span>🔄</span> <strong>Stealth Mode: Ghost Layer</strong> (Invisible
+                                during Screen Sharing)</li>
+                            <li class="pending"><span>🔄</span> <strong>AI Mock Simulation</strong> (With Detailed
+                                Behavioral Reports)</li>
+                            <li class="pending"><span>🔄</span> <strong>Post-Mission Debrief</strong> (Copilot Report +
+                                Clearing Probability %)</li>
+                            <li class="pending"><span>🔄</span> <strong>Desktop Native App</strong> (Universal
+                                Win/macOS)</li>
+                            <li class="pending"><span>🔄</span> <strong>Neural Transcribe v2</strong> (Phase-Shift Zero
+                                Latency)</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
             <!-- Problem Section -->
             <section id="problem" class="section-container">
                 <h2 class="section-title">Why Candidates <span style="color: var(--danger);">Struggle</span>.</h2>
@@ -2087,54 +2307,61 @@
 
                     <!-- Mock Interview -->
                     <div class="glass feature-card glass-card-hover" style="opacity: 0.9; border-radius: 32px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div
+                            style="flex-direction: row; display: flex; justify-content: space-between; align-items: center;">
                             <div style="font-size: 2rem;">🎭</div>
-                            <span class="status soon">Status: Coming Soon</span>
+                            <span class="status soon">Status: v2 Internal</span>
                         </div>
-                        <h3 style="font-size: 1.4rem; margin-top: 1rem;">Mock Interviews</h3>
-                        <p style="color: var(--text-secondary); font-size: 1rem;">Practice before it matters.</p>
+                        <h3 style="font-size: 1.4rem; margin-top: 1rem;">AI Mock Simulation</h3>
+                        <p style="color: var(--text-secondary); font-size: 1rem;">Practice with deep performance
+                            metrics.</p>
                         <ul class="feature-list" style="margin-top: 1.5rem;">
-                            <li>Role-specific mock interviews</li>
-                            <li>AI-generated questions</li>
-                            <li>Feedback on clarity and confidence</li>
+                            <li>Role-specific behavioral mock drills</li>
+                            <li><strong>Detailed Behavioral Reports</strong></li>
+                            <li>Clarity, Confidence & Tone Analysis</li>
+                            <li>AI-generated follow-up coaching</li>
                         </ul>
                         <button class="btn-outline" style="margin-top: auto; padding: 18px;"
-                            onclick="joinWaitlist('Mock Interviews')">Join Waitlist</button>
+                            onclick="joinWaitlist('Mock Simulation')">Join Waitlist</button>
+                    </div>
+
+                    <!-- Analytical Debrief -->
+                    <div class="glass feature-card glass-card-hover" style="opacity: 0.9; border-radius: 32px;">
+                        <div
+                            style="flex-direction: row; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="font-size: 2rem;">📊</div>
+                            <span class="status soon">Status: v2 Internal</span>
+                        </div>
+                        <h3 style="font-size: 1.4rem; margin-top: 1rem;">Mission Debriefs</h3>
+                        <p style="color: var(--text-secondary); font-size: 1rem;">Data-driven post-interview insights.
+                        </p>
+                        <ul class="feature-list" style="margin-top: 1.5rem;">
+                            <li><strong>Live Interview Probability Score %</strong></li>
+                            <li>Post-interview mission reports</li>
+                            <li>Clearing chances vs. Industry benchmarks</li>
+                            <li>Personalized improvement roadmap</li>
+                        </ul>
+                        <button class="btn-outline" style="margin-top: auto; padding: 18px; border-style: dashed;"
+                            onclick="joinWaitlist('Analytical Reports')">Join Waitlist</button>
                     </div>
 
                     <!-- Stealth Mode -->
-                    <div class="glass feature-card glass-card-hover" style="opacity: 0.9; border-radius: 32px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="glass feature-card glass-card-hover" style="border-radius: 32px;">
+                        <div
+                            style="flex-direction: row; display: flex; justify-content: space-between; align-items: center;">
                             <div style="font-size: 2rem;">🕵️‍♂️</div>
-                            <span class="status soon">Status: Coming Soon</span>
+                            <span class="status soon">Status: v2 Internal</span>
                         </div>
-                        <h3 style="font-size: 1.4rem; margin-top: 1rem;">Stealth Mode</h3>
-                        <p style="color: var(--text-secondary); font-size: 1rem;">Built to stay discreet.</p>
+                        <h3 style="font-size: 1.4rem; margin-top: 1rem;">Stealth Engine</h3>
+                        <p style="color: var(--text-secondary); font-size: 1rem;">The ultimate screen-share ghost.</p>
                         <ul class="feature-list" style="margin-top: 1.5rem;">
-                            <li>Clean, minimal interface</li>
-                            <li>No audio output</li>
-                            <li>Designed for quiet, focused use</li>
+                            <li><strong>Invisible to standard screen captures</strong></li>
+                            <li>Dual-layered adaptive transparency</li>
+                            <li>Shortcut-activated ghost mode (Alt+S)</li>
+                            <li>Zero detection signature</li>
                         </ul>
                         <button class="btn-outline" style="margin-top: auto; padding: 18px; border-style: dashed;"
-                            onclick="joinWaitlist('Stealth Mode')">Join Waitlist</button>
-                    </div>
-
-                    <!-- Privacy Section -->
-                    <div class="glass feature-card glass-card-hover" style="border-radius: 32px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div style="font-size: 2rem;">🔐</div>
-                            <span class="status live">Privacy & Trust</span>
-                        </div>
-                        <h3 style="font-size: 1.4rem; margin-top: 1rem;">Privacy You Can Trust</h3>
-                        <p style="color: var(--text-secondary); font-size: 1rem;">Your data security is our priority.
-                        </p>
-                        <ul class="feature-list" style="margin-top: 1.5rem;">
-                            <li>No interview recordings stored</li>
-                            <li>Secure, encrypted sessions</li>
-                            <li>You control when sessions start and end</li>
-                        </ul>
-                        <button class="btn-outline" style="margin-top: auto; padding: 18px;"
-                            onclick="joinWaitlist('Privacy Center')">Privacy Center</button>
+                            onclick="joinWaitlist('Stealth Engine')">Join Waitlist</button>
                     </div>
                 </div>
             </section>
@@ -2220,8 +2447,9 @@
                         <div class="price">$70 <span>/ month</span></div>
                         <ul class="feature-list" style="text-align: left; margin: 2rem 0; font-size: 1.1rem;">
                             <li style="margin-bottom: 0.8rem;">Unlimited interviews</li>
-                            <li style="margin-bottom: 0.8rem;">Mock Interviews</li>
-                            <li style="margin-bottom: 0.8rem;">Priority response speed</li>
+                            <li style="margin-bottom: 0.8rem;"><strong>AI Mock Simulations</strong></li>
+                            <li style="margin-bottom: 0.8rem;"><strong>Post-Mission Reports</strong></li>
+                            <li style="margin-bottom: 0.8rem;">Clearing Probability Score %</li>
                             <li style="margin-bottom: 0.8rem;">Advanced answer tuning</li>
                         </ul>
                         <button class="btn-outline" style="width: 100%; opacity: 0.8;"
@@ -2304,7 +2532,9 @@
                                 style="color: var(--success); font-weight: 700;">Free</span></div>
                         <div class="dash-stat-pill">Credits: <span id="creditBadge"
                                 style="color: white; font-weight: 700;">...</span></div>
-                        <div class="dash-stat-pill">Sessions: <span style="color: white;">46+ Assisted</span></div>
+                        <div class="dash-stat-pill">v2 Status: <span
+                                style="color: var(--accent-glow); font-weight: 700;">Loading Project Stealth...</span>
+                        </div>
                     </div>
                 </header>
 
@@ -2562,6 +2792,18 @@
         initParticles();
         animateParticles();
         window.addEventListener('resize', initParticles);
+
+        // Stealth Toggle (Alt + S)
+        window.addEventListener('keydown', (e) => {
+            if (e.altKey && e.key.toLowerCase() === 's') {
+                document.body.classList.toggle('stealth-active');
+
+                // If in stealth, don't auto-hide completely until done
+                if (document.body.classList.contains('stealth-active')) {
+                    console.log("Global Stealth Mode Active: V2 Engine Preview");
+                }
+            }
+        });
 
         // --- MOTION & SPOTLIGHT ---
         window.addEventListener('mousemove', (e) => {
