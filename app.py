@@ -496,7 +496,7 @@ RATE = 16000
 CHUNK = 1024
 LANGUAGE_CODE = "en-US"
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health():
     return {"status": "ok"}
 
