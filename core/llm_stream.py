@@ -51,8 +51,8 @@ class LLMStreamer:
         history: List[Tuple[str, str]],
     ) -> str:
         company = context.get("company") or "the company"
-        resume = (context.get("resume") or "")[:3000]
-        jd = (context.get("jd") or "")[:2000]
+        resume = context.get("resume") or ""
+        jd = context.get("jd") or ""
 
         hist_block = ""
         if history:

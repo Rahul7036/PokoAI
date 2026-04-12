@@ -497,8 +497,8 @@ async def generate_briefing(
         prompt = f"""
         You are a career coach. Based on this RESUME and JOB DESCRIPTION, generate 4 "Prep Cards" to help the candidate in the final 5 minutes before the interview.
         
-        RESUME: {ctx['resume'][:3000]}
-        JD: {ctx['jd'][:2000]}
+        RESUME: {ctx['resume']}
+        JD: {ctx['jd']}
 
         OUTPUT FORMAT (JSON ONLY):
         {{
@@ -555,10 +555,10 @@ async def analyze_resume(
         Analyze the following Resume against the Job Description (JD).
         
         RESUME:
-        {resume_text[:4000]}
+        {resume_text}
         
         JOB DESCRIPTION:
-        {job_description[:2000]}
+        {job_description}
         
         Your task:
         1. Compare every requirement in the JD with the experience in the Resume.
