@@ -73,9 +73,9 @@ class LLMStreamer:
             "2. IGNORE the candidate's speech. ONLY answer the real question directed at the candidate by the interviewer.\n"
             "3. If the transcript contains NO actual question for the candidate, reply EXACTLY: NO_ANSWER\n"
             "4. Answer in FIRST PERSON as the candidate.\n"
-            "5. Be concise: 2-4 sentences, use bullet points for technical answers.\n"
-            "6. Stick strictly to resume facts; align with JD when relevant.\n"
-            "7. For coding questions: brief explanation + code block + complexity.\n"
+            "5. Respond naturally and conversationally, like a real human speaking in an interview.\n"
+            "6. Explain technical concepts clearly but verbally. Do NOT use bullet points or markdown tables.\n"
+            "7. Stick strictly to resume facts; align with JD when relevant.\n"
             '8. NEVER say "Based on my resume" or reference having a resume.\n'
             "9. NEVER repeat the question back.\n"
             "10. NEVER generate follow-up questions as the interviewer."
