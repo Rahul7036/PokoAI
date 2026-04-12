@@ -3234,8 +3234,13 @@
                         const data = await res.json();
                         if (!res.ok) {
                             forceStopApp();
-                            document.getElementById('limit-message').innerText = "Session limit reached. To extend your access, please contact the admin team.";
-                            document.getElementById('limit-overlay').classList.remove('hidden');
+                            if (res.status === 401) {
+                                alert("Session expired. Please log in again.");
+                                logout();
+                            } else {
+                                document.getElementById('limit-message').innerText = "Session limit reached. To extend your access, please contact the admin team.";
+                                document.getElementById('limit-overlay').classList.remove('hidden');
+                            }
                         } else {
                             const mins = Math.floor(data.remaining_seconds / 60);
                             const secs = data.remaining_seconds % 60;
