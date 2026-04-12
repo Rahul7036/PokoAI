@@ -496,6 +496,10 @@ RATE = 16000
 CHUNK = 1024
 LANGUAGE_CODE = "en-US"
 
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
 @app.get("/")
 async def get():
     if os.path.exists("templates/index.html"):
