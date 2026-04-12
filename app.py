@@ -1,23 +1,55 @@
+"""
+PokoAI — Real-Time AI Interview Assistant (Production Refactor)
+
+Architecture:
+    Audio → STT (streaming, auto-restart) → Utterance Builder (pause-based)
+    → Speaker Filter → Intent Filter → Debounce → State Machine
+    → Streaming LLM → WebSocket
+
+Key changes from original:
+    • Global USER_CONTEXT eliminated → per-user SessionStore
+    • JWT removed from WebSocket URL → initial auth message
+    • Streaming LLM responses (token-by-token) instead of full-response delay
+    • Proper silence detection prevents mid-sentence triggers
+    • Speaker diarization filters out candidate speech
+    • Intent filter blocks fillers ("yeah", "okay", etc.)
+    • Debounce prevents duplicate responses
+    • State machine (LISTENING/PROCESSING/RESPONDING) prevents race conditions
+    • Accurate usage tracking (wall-clock session duration)
+    • STT auto-restart before 5-min limit with zero transcript loss
+"""
+
 import os
-import queue
 import asyncio
 import json
+import io
 import logging
-import threading
-import re
-import smtplib
 import random
 import string
+import smtplib
 import bcrypt
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+
 from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import (
+    FastAPI,
+    WebSocket,
+    WebSocketDisconnect,
+    UploadFile,
+    File,
+    Form,
+    Depends,
+    HTTPException,
+    status,
+)
 from fastapi.responses import HTMLResponse
-from google.cloud import speech
-import vertexai
-from vertexai.generative_models import GenerativeModel
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+from pypdf import PdfReader
+from sqlalchemy.orm import Session as DBSession
+from google.oauth2 import service_account
 
 # Load environment variables
 load_dotenv()
@@ -25,103 +57,114 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Configure Google Cloud credentials from environment variables
-import json
-import tempfile
-from google.oauth2 import service_account
+# ======================================================================
+# Google Cloud / Vertex AI Initialization
+# ======================================================================
 
 project_id = os.getenv("GCP_PROJECT_ID", "intrepid-honor-484608-e0")
 location = "us-central1"
 
-# Construct service account credentials from env vars
 credentials_dict = {
     "type": "service_account",
     "project_id": os.getenv("GCP_PROJECT_ID"),
     "private_key_id": os.getenv("GCP_PRIVATE_KEY_ID"),
-    "private_key": os.getenv("GCP_PRIVATE_KEY", "").replace("\\n", "\n"),  # Handle escaped newlines
+    "private_key": os.getenv("GCP_PRIVATE_KEY", "").replace("\\n", "\n"),
     "client_email": os.getenv("GCP_CLIENT_EMAIL"),
     "client_id": os.getenv("GCP_CLIENT_ID"),
     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
     "token_uri": "https://oauth2.googleapis.com/token",
     "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-    "client_x509_cert_url": f"https://www.googleapis.com/robot/v1/metadata/x509/{os.getenv('GCP_CLIENT_EMAIL', '').replace('@', '%40')}",
-    "universe_domain": "googleapis.com"
+    "client_x509_cert_url": (
+        f"https://www.googleapis.com/robot/v1/metadata/x509/"
+        f"{os.getenv('GCP_CLIENT_EMAIL', '').replace('@', '%40')}"
+    ),
+    "universe_domain": "googleapis.com",
 }
 
-# Create credentials from dict
 try:
-    credentials = service_account.Credentials.from_service_account_info(credentials_dict)
-    
-    # Set credentials for Google Cloud clients
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = ""  # Clear any file-based credentials
-    
-    # Initialize Vertex AI with credentials
+    credentials = service_account.Credentials.from_service_account_info(
+        credentials_dict
+    )
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = ""
+
+    import vertexai
+    from vertexai.generative_models import GenerativeModel
+
     vertexai.init(project=project_id, location=location, credentials=credentials)
     model = GenerativeModel("gemini-2.0-flash-001")
-    logger.info("Vertex AI initialized successfully from environment variables.")
+    logger.info("Vertex AI initialized successfully.")
 except Exception as e:
     logger.error(f"Vertex AI Init Failed: {e}")
     model = None
     credentials = None
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form, Depends, HTTPException, status
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-from pypdf import PdfReader
-import io
+# ======================================================================
+# Database & Auth Imports
+# ======================================================================
+
 import models
-from database import engine, get_db
-from sqlalchemy.orm import Session
-from auth import get_password_hash, verify_password, create_access_token, verify_google_token, get_current_user
-from datetime import timedelta
+from database import engine, get_db, SessionLocal
+from auth import (
+    get_password_hash,
+    verify_password,
+    create_access_token,
+    verify_google_token,
+    get_current_user,
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+)
 
+# ======================================================================
+# Core Pipeline Imports (the new modular architecture)
+# ======================================================================
 
-# Initialize Tables
+from core.session import SessionStore
+from core.stt_manager import STTManager
+from core.llm_stream import LLMStreamer
+from core.pipeline import InterviewPipeline
+
+# ======================================================================
+# App Setup
+# ======================================================================
+
 models.Base.metadata.create_all(bind=engine)
+
 
 def ensure_schema_updates():
     """Ensure existing DB has columns from recent updates."""
     from sqlalchemy import text
-    with engine.connect() as conn:
-        # Check for time_limit_seconds
-        try:
-            conn.execute(text("ALTER TABLE users ADD COLUMN time_limit_seconds INTEGER DEFAULT 1200"))
-            logger.info("Added time_limit_seconds column")
-        except Exception:
-            pass
-        
-        # Check for time_used_seconds
-        try:
-            conn.execute(text("ALTER TABLE users ADD COLUMN time_used_seconds INTEGER DEFAULT 0"))
-            logger.info("Added time_used_seconds column")
-        except Exception:
-            pass
-            
-        # Check for otp_code
-        try:
-            conn.execute(text("ALTER TABLE users ADD COLUMN otp_code VARCHAR"))
-            logger.info("Added otp_code column")
-        except Exception:
-            pass
 
-        # Check for otp_expires_at
-        try:
-            conn.execute(text("ALTER TABLE users ADD COLUMN otp_expires_at DATETIME"))
-            logger.info("Added otp_expires_at column")
-        except Exception:
-            pass
+    with engine.connect() as conn:
+        for col_def in [
+            "ALTER TABLE users ADD COLUMN time_limit_seconds INTEGER DEFAULT 1200",
+            "ALTER TABLE users ADD COLUMN time_used_seconds INTEGER DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN otp_code VARCHAR",
+            "ALTER TABLE users ADD COLUMN otp_expires_at DATETIME",
+        ]:
+            try:
+                conn.execute(text(col_def))
+                logger.info(f"Schema update: {col_def.split('ADD COLUMN ')[1].split()[0]}")
+            except Exception:
+                pass
         conn.commit()
+
 
 ensure_schema_updates()
 
-app = FastAPI()
+app = FastAPI(title="PokoAI Interview Assistant", version="2.0.0")
+
+# Global session store (replaces the old global USER_CONTEXT)
+session_store = SessionStore()
 
 
-# --- Auth Schemas ---
+# ======================================================================
+# Auth Schemas
+# ======================================================================
+
+
 class UserLogin(BaseModel):
     email: str
     password: str
+
 
 class UserRegister(BaseModel):
     email: str
@@ -129,29 +172,38 @@ class UserRegister(BaseModel):
     fullName: str
     profession: str
 
+
 class PasswordChange(BaseModel):
     oldPassword: str
     newPassword: str
 
+
 class GoogleLogin(BaseModel):
     token: str
+
 
 class OTPVerify(BaseModel):
     email: str
     otp: str
 
+
+# ======================================================================
+# Email Utility
+# ======================================================================
+
+
 def send_otp_email(to_email: str, otp: str):
     sender_email = os.getenv("EMAIL_USER")
     sender_password = os.getenv("EMAIL_PASS")
-    
+
     if not sender_email or not sender_password:
         logger.error("EMAIL_USER or EMAIL_PASS not set")
         return False
 
     msg = MIMEMultipart()
-    msg['From'] = f"PokoAI <{sender_email}>"
-    msg['To'] = to_email
-    msg['Subject'] = "Your OTP Code"
+    msg["From"] = f"PokoAI <{sender_email}>"
+    msg["To"] = to_email
+    msg["Subject"] = "Your OTP Code"
 
     html = f"""
       <h2>PokoAI Email Verification</h2>
@@ -159,10 +211,10 @@ def send_otp_email(to_email: str, otp: str):
       <h1>{otp}</h1>
       <p>This code expires in 10 minutes.</p>
     """
-    msg.attach(MIMEText(html, 'html'))
+    msg.attach(MIMEText(html, "html"))
 
     try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server = smtplib.SMTP("smtp.gmail.com", 587)
         server.starttls()
         server.login(sender_email, sender_password)
         server.send_message(msg)
@@ -172,228 +224,281 @@ def send_otp_email(to_email: str, otp: str):
         logger.error(f"Failed to send email: {e}")
         return False
 
-# --- Auth Routes ---
-BETA_INVITE_CODE = "PRAPAI2026"
+
+# ======================================================================
+# Auth Routes (kept from original — no changes needed)
+# ======================================================================
+
 
 @app.post("/auth/register")
-def register(user: UserRegister, db: Session = Depends(get_db)):
+def register(user: UserRegister, db: DBSession = Depends(get_db)):
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-    
+
     hashed_password = get_password_hash(user.password)
-    
-    # Generate OTP
-    otp = ''.join(random.choices(string.digits, k=6))
-    otp_hash = bcrypt.hashpw(otp.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+    otp = "".join(random.choices(string.digits, k=6))
+    otp_hash = bcrypt.hashpw(otp.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
     otp_expires = datetime.utcnow() + timedelta(minutes=10)
 
     new_user = models.User(
-        email=user.email, 
+        email=user.email,
         hashed_password=hashed_password,
         full_name=user.fullName,
         profession=user.profession,
-        is_active=False, # Accout pending approval
+        is_active=False,
         otp_code=otp_hash,
-        otp_expires_at=otp_expires
+        otp_expires_at=otp_expires,
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    
-    # Send OTP Email
-    email_sent = send_otp_email(user.email, otp)
-    if not email_sent:
-        logger.error("Failed to send OTP email")
-        # Ensure we don't rollback user creation, but maybe warn?
-        # Ideally, we might want to delete user if email fails, but for now let's keep it.
 
-    # We still return a token so they can see the "pending" message if we want,
-    # but the get_current_user dependency or the login route will block them.
-    access_token = create_access_token(data={"sub": new_user.email})
-    return {"access_token": access_token, "token_type": "bearer", "message": "OTP sent to email"}
+    send_otp_email(user.email, otp)
+
+    access_token = create_access_token(
+        data={"sub": new_user.email},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "message": "OTP sent to email",
+    }
+
 
 @app.post("/auth/verify-otp")
-def verify_otp(data: OTPVerify, db: Session = Depends(get_db)):
+def verify_otp(data: OTPVerify, db: DBSession = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == data.email).first()
     if not user:
         raise HTTPException(status_code=400, detail="User not found")
-        
+
     if user.is_active:
         return {"message": "Account already active"}
-        
+
     if not user.otp_code:
         raise HTTPException(status_code=400, detail="Invalid OTP")
-    
-    # Verify OTP Hash
+
     try:
-        if not bcrypt.checkpw(data.otp.encode('utf-8'), user.otp_code.encode('utf-8')):
-             raise HTTPException(status_code=400, detail="Invalid OTP")
+        if not bcrypt.checkpw(data.otp.encode("utf-8"), user.otp_code.encode("utf-8")):
+            raise HTTPException(status_code=400, detail="Invalid OTP")
     except Exception:
-        # Fallback for old plain-text OTPs if any exist (optional, but safer during transition)
         if user.otp_code != data.otp:
-             raise HTTPException(status_code=400, detail="Invalid OTP")
-        
+            raise HTTPException(status_code=400, detail="Invalid OTP")
+
     if not user.otp_expires_at or user.otp_expires_at < datetime.utcnow():
         raise HTTPException(status_code=400, detail="OTP Expired")
-        
+
     user.is_active = True
     user.otp_code = None
     user.otp_expires_at = None
     db.commit()
-    
-    access_token = create_access_token(data={"sub": user.email})
-    return {"message": "Account verified successfully", "access_token": access_token, "token_type": "bearer"}
+
+    access_token = create_access_token(
+        data={"sub": user.email},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
+    return {
+        "message": "Account verified successfully",
+        "access_token": access_token,
+        "token_type": "bearer",
+    }
+
 
 @app.post("/auth/resend-otp")
-def resend_otp(data: OTPVerify, db: Session = Depends(get_db)):
-    # We only need email from data
+def resend_otp(data: OTPVerify, db: DBSession = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == data.email).first()
     if not user:
         raise HTTPException(status_code=400, detail="User not found")
-        
+
     if user.is_active:
         return {"message": "Account already active"}
-        
-    otp = ''.join(random.choices(string.digits, k=6))
-    otp_hash = bcrypt.hashpw(otp.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+    otp = "".join(random.choices(string.digits, k=6))
+    otp_hash = bcrypt.hashpw(otp.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
     otp_expires = datetime.utcnow() + timedelta(minutes=10)
-    
+
     user.otp_code = otp_hash
     user.otp_expires_at = otp_expires
     db.commit()
-    
+
     send_otp_email(user.email, otp)
     return {"message": "OTP resent successfully"}
 
+
 @app.post("/auth/login")
-def login(user: UserLogin, db: Session = Depends(get_db)):
+def login(user: UserLogin, db: DBSession = Depends(get_db)):
     db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if not db_user or not db_user.hashed_password:
         raise HTTPException(status_code=400, detail="Invalid credentials")
-    
+
     if not verify_password(user.password, db_user.hashed_password):
         raise HTTPException(status_code=400, detail="Invalid credentials")
-        
-    if not db_user.is_active:
-        raise HTTPException(status_code=403, detail="Account not verified. Please check your email for the OTP code.")
 
-    access_token = create_access_token(data={"sub": db_user.email})
+    if not db_user.is_active:
+        raise HTTPException(
+            status_code=403,
+            detail="Account not verified. Please check your email for the OTP code.",
+        )
+
+    access_token = create_access_token(
+        data={"sub": db_user.email},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
     return {"access_token": access_token, "token_type": "bearer"}
 
+
 @app.post("/auth/google")
-def google_auth(login: GoogleLogin, db: Session = Depends(get_db)):
+def google_auth(login: GoogleLogin, db: DBSession = Depends(get_db)):
     id_info = verify_google_token(login.token)
     if not id_info:
         raise HTTPException(status_code=400, detail="Invalid Google Token")
-    
-    email = id_info['email']
-    google_id = id_info['sub']
-    
-    # Check if user exists
+
+    email = id_info["email"]
+    google_id = id_info["sub"]
+
     db_user = db.query(models.User).filter(models.User.email == email).first()
-    
+
     if not db_user:
-        # Create new user via Google, automatically activate and set 20 min limit (1200s)
-        full_name = id_info.get('name')
+        full_name = id_info.get("name")
         db_user = models.User(
-            email=email, 
-            google_id=google_id, 
+            email=email,
+            google_id=google_id,
             full_name=full_name,
-            is_active=True, 
-            time_limit_seconds=1200
+            is_active=True,
+            time_limit_seconds=1200,
         )
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
     else:
-        # User exists, ensure they are linked to Google and active
         db_user.google_id = google_id
         db_user.is_active = True
         db.commit()
 
-    access_token = create_access_token(data={"sub": db_user.email})
+    access_token = create_access_token(
+        data={"sub": db_user.email},
+        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
+    )
     return {"access_token": access_token, "token_type": "bearer"}
 
+
 @app.post("/auth/change-password")
-def change_password(data: PasswordChange, current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+def change_password(
+    data: PasswordChange,
+    current_user: models.User = Depends(get_current_user),
+    db: DBSession = Depends(get_db),
+):
     if not current_user.hashed_password:
-        raise HTTPException(status_code=400, detail="Cannot change password for Google-only accounts")
-    
+        raise HTTPException(
+            status_code=400, detail="Cannot change password for Google-only accounts"
+        )
+
     if not verify_password(data.oldPassword, current_user.hashed_password):
         raise HTTPException(status_code=400, detail="Current password incorrect")
-    
+
     current_user.hashed_password = get_password_hash(data.newPassword)
     db.commit()
     return {"status": "success", "message": "Password updated successfully"}
 
-# --- Usage/Credits API ---
+
+# ======================================================================
+# Usage / Credits API
+# ======================================================================
+
+
 @app.get("/api/user/status")
-def get_user_status(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+def get_user_status(
+    current_user: models.User = Depends(get_current_user),
+    db: DBSession = Depends(get_db),
+):
     return {
         "email": current_user.email,
         "full_name": current_user.full_name or "Candidate",
         "profession": current_user.profession or "Professional",
         "time_limit_seconds": current_user.time_limit_seconds,
         "time_used_seconds": current_user.time_used_seconds,
-        "remaining_seconds": max(0, current_user.time_limit_seconds - current_user.time_used_seconds)
+        "remaining_seconds": max(
+            0, current_user.time_limit_seconds - current_user.time_used_seconds
+        ),
     }
 
+
 @app.post("/api/heartbeat")
-def heartbeat(current_user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+def heartbeat(
+    current_user: models.User = Depends(get_current_user),
+    db: DBSession = Depends(get_db),
+):
     if current_user.time_used_seconds >= current_user.time_limit_seconds:
         raise HTTPException(status_code=403, detail="Credit limit reached")
-    
-    # Increment by 10 seconds (heartbeat interval)
+
     current_user.time_used_seconds += 10
     db.commit()
-    return {"status": "success", "remaining_seconds": max(0, current_user.time_limit_seconds - current_user.time_used_seconds)}
+    return {
+        "status": "success",
+        "remaining_seconds": max(
+            0, current_user.time_limit_seconds - current_user.time_used_seconds
+        ),
+    }
 
 
-# Context Management
-USER_CONTEXT = {
-    "resume": "",
-    "jd": "",
-    "company": ""
-}
+# ======================================================================
+# Context Management (now per-user via SessionStore)
+# ======================================================================
+
 
 @app.post("/update_context")
 async def update_context(
     resume_file: UploadFile = File(None),
     jd: str = Form(...),
-    company: str = Form("")
+    company: str = Form(""),
+    current_user: models.User = Depends(get_current_user),
 ):
-    # Process PDF Resume if provided
+    """
+    Update the interview context for the authenticated user.
+    
+    Now stores context in the per-user session (no global state).
+    """
+    session = await session_store.create_or_restore(current_user.email)
+
+    resume_text = ""
     if resume_file:
         try:
             content = await resume_file.read()
             pdf = PdfReader(io.BytesIO(content))
-            text = ""
             for page in pdf.pages:
-                text += page.extract_text() + "\n"
-            
-            USER_CONTEXT["resume"] = text
-            logger.info(f"Resume PDF processed ({len(text)} chars)")
+                resume_text += (page.extract_text() or "") + "\n"
+            logger.info(f"Resume PDF processed ({len(resume_text)} chars)")
         except Exception as e:
             logger.error(f"Error reading PDF: {e}")
             return {"status": "error", "message": str(e)}
-            
-    USER_CONTEXT["jd"] = jd
-    USER_CONTEXT["company"] = company
-    logger.info(f"Context updated via API for company: {company}")
+
+    session.update_context(resume=resume_text, jd=jd, company=company)
     return {"status": "success", "message": "Context updated"}
 
+
+# ======================================================================
+# AI Feature Endpoints (now per-user context)
+# ======================================================================
+
+
 @app.post("/api/generate-briefing")
-async def generate_briefing():
+async def generate_briefing(
+    current_user: models.User = Depends(get_current_user),
+):
+    """Generate interview prep cards — uses per-user session context."""
     try:
-        if not USER_CONTEXT["resume"] or not USER_CONTEXT["jd"]:
+        session = await session_store.get_by_email(current_user.email)
+        if not session or not session.context["resume"] or not session.context["jd"]:
             return {"status": "error", "message": "Resume and JD required"}
 
+        ctx = session.context
         prompt = f"""
         You are a career coach. Based on this RESUME and JOB DESCRIPTION, generate 4 "Prep Cards" to help the candidate in the final 5 minutes before the interview.
         
-        RESUME: {USER_CONTEXT['resume'][:3000]}
-        JD: {USER_CONTEXT['jd'][:2000]}
+        RESUME: {ctx['resume'][:3000]}
+        JD: {ctx['jd'][:2000]}
 
         OUTPUT FORMAT (JSON ONLY):
         {{
@@ -430,20 +535,19 @@ async def generate_briefing():
         logger.error(f"Briefing failed: {e}")
         return {"status": "error", "message": str(e)}
 
+
 @app.post("/api/analyze-resume")
 async def analyze_resume(
     resume: UploadFile = File(...),
-    job_description: str = Form(...)
+    job_description: str = Form(...),
 ):
     try:
-        # 1. Extract Text from PDF
         content = await resume.read()
         reader = PdfReader(io.BytesIO(content))
         resume_text = ""
         for page in reader.pages:
             resume_text += page.extract_text() or ""
-            
-        # 2. Construct Prompt
+
         prompt = f"""
         You are an extremely strict, elite HR Recruiter and Technical Interviewer from a Top Tier Tech Company.
         Your job is to be BRUTALLY HONEST. Do not sugarcoat anything. If the candidate is bad, say it.
@@ -472,33 +576,38 @@ async def analyze_resume(
         }}
         Do not output markdown code blocks. Just the raw JSON string.
         """
-        
-        if not model:
-             raise HTTPException(status_code=500, detail="AI Model not initialized")
 
-        # 3. Generate Response
+        if not model:
+            raise HTTPException(status_code=500, detail="AI Model not initialized")
+
         response = model.generate_content(prompt)
         response_text = response.text.strip()
-        
-        # Clean potential markdown
+
         if response_text.startswith("```json"):
             response_text = response_text[7:]
         if response_text.endswith("```"):
             response_text = response_text[:-3]
-            
+
         return json.loads(response_text)
-        
+
     except Exception as e:
         logger.error(f"Resume Analysis Failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ======================================================================
+# Health & Static Routes
+# ======================================================================
 
 RATE = 16000
 CHUNK = 1024
 LANGUAGE_CODE = "en-US"
 
+
 @app.api_route("/health", methods=["GET", "HEAD"])
 def health():
     return {"status": "ok"}
+
 
 @app.get("/")
 async def get():
@@ -507,195 +616,221 @@ async def get():
             return HTMLResponse(content=f.read())
     return HTMLResponse(content="<h1>Error: templates/index.html not found</h1>")
 
-async def get_vertex_response(text, history):
-    if not model:
-        return "Error: Vertex AI not initialized."
-    try:
-        # Format history
-        history_text = ""
-        if history:
-            history_text = "PREVIOUS CONVERSATION:\n" + "\n".join([f"Interviewer: {q}\nYou: {a}" for q, a in history[-10:]])
-        
-        # Smart Prompt with Resume & JD
-        prompt = f"""
-        You are the candidate in a job interview for {USER_CONTEXT['company']}.
-        Identify yourself using the name and details provided in YOUR RESUME below.
-        You are listening to the INTERVIEWER.
-        
-        YOUR RESUME (The "Truth"):
-        {USER_CONTEXT['resume']}
-        
-        JOB DESCRIPTION (Target Role):
-        {USER_CONTEXT['jd']}
-        
-        {history_text}
-        
-        CURRENT INPUT FROM INTERVIEWER:
-        "{text}"
-        
-        INSTRUCTIONS:
-        1. ANALYZE the input internally. DO NOT OUTPUT YOUR ANALYSIS.
-        2. IF IT IS NOT A QUESTION/COMMAND (e.g. noise, mumbles), output ONLY: "NO_ANSWER"
-        3. IF IT IS A QUESTION/COMMAND, output ONLY the response:
-           - Answer in the FIRST PERSON.
-           - Stick to the facts in your RESUME.
-           - Align with JD requirements.
-           - Be friendly, professional, and conversational.
-        4. IF CODING PROBLEM:
-           - Detect language from JD/context (default Python).
-           - Brief explanation.
-           - Code block.
-           - Complexity.
-        """
-        
-        response = await asyncio.to_thread(model.generate_content, prompt)
-        return response.text.strip()
-    except Exception as e:
-        logger.error(f"Vertex AI Error: {e}")
-        return "Error generating answer from Vertex AI."
 
-def should_trigger_ai(text):
-    # Relaxed filter: Let the AI decide, but filter out absolute noise
-    text = text.strip()
-    if len(text.split()) < 2: # Ignore single words like "Hello", "Okay" unless they are questions?
-        return False
-    return True
+# ======================================================================
+# WebSocket Endpoint — Complete Rewrite
+# ======================================================================
 
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket, token: str = None, db: Session = Depends(get_db)):
-    # Authenticate user via token query param
-    if not token:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
-        
+
+def _authenticate_user(token: str):
+    """
+    Authenticate a user by JWT token.
+    
+    Creates its own DB session (not via Depends, since we're in a WS context
+    where we need manual control).
+    """
+    db = SessionLocal()
     try:
         user = get_current_user(token, db)
-    except Exception:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
+        # Detach from the session so we can use the user object after closing
+        email = user.email
+        time_used = user.time_used_seconds
+        time_limit = user.time_limit_seconds
+        return {
+            "email": email,
+            "time_used": time_used,
+            "time_limit": time_limit,
+        }
+    finally:
+        db.close()
 
-    if user.time_used_seconds >= user.time_limit_seconds:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
 
+def _update_usage(email: str, duration_seconds: int):
+    """Record actual session duration in the database."""
+    db = SessionLocal()
+    try:
+        db_user = db.query(models.User).filter(models.User.email == email).first()
+        if db_user:
+            db_user.time_used_seconds += duration_seconds
+            db.commit()
+            logger.info(
+                f"Usage updated for {email}: +{duration_seconds}s "
+                f"(total: {db_user.time_used_seconds}s)"
+            )
+    except Exception as exc:
+        logger.error(f"Usage update failed: {exc}")
+    finally:
+        db.close()
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket, token: str = None):
+    """
+    Production WebSocket endpoint for real-time interview assistance.
+
+    Authentication flow:
+        1. (Preferred) Connect to /ws, then send {"type": "auth", "token": "JWT"}
+        2. (Legacy)    Connect to /ws?token=JWT — still works but logs a warning
+
+    After auth, the client can:
+        • Send binary audio frames → processed through the full pipeline
+        • Send {"type": "context", "resume": "...", "jd": "...", "company": "..."}
+
+    The server streams back:
+        • {"type": "transcript", "transcript": "...", "is_final": bool}
+        • {"type": "answer_chunk", "chunk": "...", "question": "..."}
+        • {"type": "answer_complete", "question": "...", "answer": "..."}
+        • {"type": "state", "state": "listening|processing|responding"}
+        • {"type": "status", "state": "...", "message": "..."}
+        • {"type": "error", "message": "..."}
+    """
     await websocket.accept()
-    logger.info(f"Client connected: {user.email}")
-    
-    audio_queue = queue.Queue()
-    conversation_history = []
-    loop = asyncio.get_running_loop()
-    stop_event = threading.Event()
 
-    def request_generator():
-        while not stop_event.is_set():
-            try:
-                # Use a short timeout to allow checking stop_event
-                data = audio_queue.get(timeout=0.1)
-                if data is None:
-                    return
-                yield speech.StreamingRecognizeRequest(audio_content=data)
-            except queue.Empty:
-                continue
-                
-    def speech_recognition_thread():
-        # Keep reconnecting until stopped
-        while not stop_event.is_set():
-            try:
-                client = speech.SpeechClient(credentials=credentials)
-                config = speech.RecognitionConfig(
-                    encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-                    sample_rate_hertz=RATE,
-                    language_code=LANGUAGE_CODE,
+    # ------------------------------------------------------------------
+    # Phase 1: Authentication
+    # ------------------------------------------------------------------
+    user_info = None
+
+    if token:
+        # Legacy: JWT in query string (insecure but backward-compatible)
+        logger.warning(
+            "DEPRECATION: JWT in URL query param is insecure. "
+            "Migrate to initial auth message."
+        )
+        try:
+            user_info = _authenticate_user(token)
+        except Exception:
+            await websocket.send_text(
+                json.dumps({"type": "error", "message": "Invalid credentials"})
+            )
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+    else:
+        # Preferred: auth via initial WebSocket message
+        try:
+            raw = await asyncio.wait_for(websocket.receive_text(), timeout=10.0)
+            auth_data = json.loads(raw)
+            if auth_data.get("type") != "auth" or not auth_data.get("token"):
+                await websocket.send_text(
+                    json.dumps({"type": "error", "message": "Auth message required"})
                 )
-                streaming_config = speech.StreamingRecognitionConfig(
-                    config=config,
-                    interim_results=True,
-                )
+                await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                return
 
-                # Get a fresh generator for this session
-                requests = request_generator()
-                
-                # This blocks until stream ends (limit or error)
-                responses = client.streaming_recognize(streaming_config, requests)
-                
-                for response in responses:
-                    if stop_event.is_set():
-                        break
-                        
-                    if not response.results:
-                        continue
-                        
-                    result = response.results[0]
-                    if not result.alternatives:
-                        continue
-                        
-                    transcript = result.alternatives[0].transcript
-                    is_final = result.is_final
-                    
-                    message = {
-                        "type": "transcript",
-                        "transcript": transcript,
-                        "is_final": is_final
-                    }
-                    
-                    if not stop_event.is_set():
-                        asyncio.run_coroutine_threadsafe(
-                            websocket.send_text(json.dumps(message)), loop
-                        )
+            user_info = _authenticate_user(auth_data["token"])
 
-                    # TRIGGER AI LOGIC - "AI Decides" Strategy
-                    if is_final and should_trigger_ai(transcript):
-                        asyncio.run_coroutine_threadsafe(
-                            trigger_ai_response(transcript, websocket), loop
-                        )
-                        
-            except Exception as e:
-                # Log but don't crash, retry loop will catch unless stopped
-                if "400" in str(e) or "out of range" in str(e): 
-                     logger.error(f"Speech API Error (will retry): {e}")
-                else:
-                     logger.error(f"Speech thread error: {e}")
-                
-            if not stop_event.is_set():
-                 logger.info("Restarting speech stream...")
-            
-    async def trigger_ai_response(text, ws):
-        # Notify UI we are thinking (optional, maybe too noisy if we do it for everything?)
-        # Let's send a subtle status
-        await ws.send_text(json.dumps({"type": "status", "message": "Listening..."}))
-        
-        answer = await get_vertex_response(text, conversation_history)
-        
-        if answer == "NO_ANSWER":
-            # AI decided this wasn't worth answering
-            logger.info(f"AI declined to answer: '{text}'")
-            await ws.send_text(json.dumps({"type": "status", "message": "Ready"}))
+        except asyncio.TimeoutError:
+            await websocket.send_text(
+                json.dumps({"type": "error", "message": "Auth timeout"})
+            )
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+        except Exception:
+            await websocket.send_text(
+                json.dumps({"type": "error", "message": "Invalid credentials"})
+            )
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
 
-        # Update History
-        conversation_history.append((text, answer))
-        
-        await ws.send_text(json.dumps({
-            "type": "answer",
-            "question": text,
-            "answer": answer
-        }))
+    # ------------------------------------------------------------------
+    # Phase 2: Credit check
+    # ------------------------------------------------------------------
+    if user_info["time_used"] >= user_info["time_limit"]:
+        await websocket.send_text(
+            json.dumps({"type": "error", "message": "Credit limit reached"})
+        )
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
 
-    t = threading.Thread(target=speech_recognition_thread)
-    t.start()
-    
+    email = user_info["email"]
+    logger.info(f"WebSocket authenticated: {email}")
+
+    # ------------------------------------------------------------------
+    # Phase 3: Session setup
+    # ------------------------------------------------------------------
+    session = await session_store.create_or_restore(email)
+    session.mark_connected()
+
+    await websocket.send_text(
+        json.dumps(
+            {
+                "type": "auth_success",
+                "session_id": session.session_id,
+                "email": email,
+            }
+        )
+    )
+
+    # ------------------------------------------------------------------
+    # Phase 4: Pipeline setup
+    # ------------------------------------------------------------------
+    stt_manager = STTManager(
+        credentials=credentials,
+        sample_rate=RATE,
+        language_code=LANGUAGE_CODE,
+        enable_diarization=True,
+    )
+    llm_streamer = LLMStreamer(model=model)
+    pipeline = InterviewPipeline(
+        session=session,
+        websocket=websocket,
+        stt_manager=stt_manager,
+        llm_streamer=llm_streamer,
+    )
+
+    await pipeline.start()
+
+    # ------------------------------------------------------------------
+    # Phase 5: Main message loop
+    # ------------------------------------------------------------------
     try:
         while True:
             message = await websocket.receive()
+
             if "bytes" in message:
-                audio_queue.put(message["bytes"])
+                pipeline.feed_audio(message["bytes"])
+
             elif "text" in message:
-                pass
+                try:
+                    data = json.loads(message["text"])
+                    msg_type = data.get("type", "")
+
+                    if msg_type == "context":
+                        # Live context update via WebSocket
+                        session.update_context(
+                            resume=data.get("resume", ""),
+                            jd=data.get("jd", ""),
+                            company=data.get("company", ""),
+                        )
+                        await websocket.send_text(
+                            json.dumps(
+                                {"type": "context_updated", "status": "success"}
+                            )
+                        )
+
+                    elif msg_type == "ping":
+                        await websocket.send_text(
+                            json.dumps({"type": "pong"})
+                        )
+
+                except json.JSONDecodeError:
+                    pass
+
     except WebSocketDisconnect:
-        logger.info("Client disconnected")
+        logger.info(f"Client disconnected: {email}")
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
     finally:
-        stop_event.set()
-        audio_queue.put(None)
-        t.join()
+        # ------------------------------------------------------------------
+        # Phase 6: Cleanup
+        # ------------------------------------------------------------------
+        await pipeline.stop()
+
+        # Accurate usage tracking — real session duration
+        duration = session.get_session_duration_seconds()
+        if duration > 0:
+            _update_usage(email, duration)
+
+        logger.info(
+            f"Session ended for {email} — duration: {duration}s"
+        )

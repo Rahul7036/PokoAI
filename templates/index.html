@@ -3145,10 +3145,11 @@
 
             try {
                 const fd = new FormData(); fd.append('resume_file', resumeFile); fd.append('jd', jd); fd.append('company', company);
-                await fetch('/update_context', { method: 'POST', body: fd });
+                const authToken = localStorage.getItem('token');
+                await fetch('/update_context', { method: 'POST', body: fd, headers: { 'Authorization': `Bearer ${authToken}` } });
 
                 // Fetch Briefing
-                const res = await fetch('/api/generate-briefing', { method: 'POST' });
+                const res = await fetch('/api/generate-briefing', { method: 'POST', headers: { 'Authorization': `Bearer ${authToken}` } });
                 const data = await res.json();
 
                 if (data.cards) {
@@ -3178,7 +3179,8 @@
             btn.innerText = "Starting..."; btn.disabled = true;
             try {
                 const fd = new FormData(); fd.append('resume_file', resumeFile); fd.append('jd', jd); fd.append('company', company);
-                await fetch('/update_context', { method: 'POST', body: fd });
+                const authToken = localStorage.getItem('token');
+                await fetch('/update_context', { method: 'POST', body: fd, headers: { 'Authorization': `Bearer ${authToken}` } });
                 document.getElementById('wizard-overlay').classList.add('hidden');
                 btn.innerText = "Start Interview Copilot"; btn.disabled = false;
                 showView('app-view');
@@ -3244,14 +3246,40 @@
                     } catch (e) { console.error("Heartbeat failed"); }
                 }, 10000);
 
+                let streamingAnswer = '';
+                let streamingQuestion = '';
                 ws.onmessage = (e) => {
                     const data = JSON.parse(e.data);
                     if (data.type === 'transcript') updateTranscript(data.transcript, data.is_final);
+
+                    // --- Streaming response handling ---
+                    if (data.type === 'answer_chunk') {
+                        if (data.question) streamingQuestion = data.question;
+                        streamingAnswer += data.chunk;
+                        document.getElementById('ai-thinking').classList.add('active');
+                    }
+                    if (data.type === 'answer_complete') {
+                        document.getElementById('ai-thinking').classList.remove('active');
+                        addAiCard(data.question, data.answer);
+                        streamingAnswer = '';
+                        streamingQuestion = '';
+                    }
+
+                    // --- Legacy support ---
                     if (data.type === 'answer') {
                         document.getElementById('ai-thinking').classList.remove('active');
                         addAiCard(data.question, data.answer);
                     }
-                    if (data.type === 'status' && data.message === 'Listening...') {
+
+                    // --- State indicators ---
+                    if (data.type === 'state') {
+                        if (data.state === 'processing' || data.state === 'responding') {
+                            document.getElementById('ai-thinking').classList.add('active');
+                        } else {
+                            document.getElementById('ai-thinking').classList.remove('active');
+                        }
+                    }
+                    if (data.type === 'status' && data.message === 'Thinking…') {
                         document.getElementById('ai-thinking').classList.add('active');
                     }
                 };

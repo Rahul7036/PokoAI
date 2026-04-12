@@ -1,17 +1,27 @@
-google-cloud-speech>=2.36.0
-sounddevice>=0.4.8
-numpy>=1.25.0
+# Core
 fastapi
-uvicorn
+uvicorn[standard]
 websockets
 python-dotenv
-huggingface_hub
-pypdf
 python-multipart
+
+# Google Cloud
+google-cloud-speech>=2.36.0
+google-auth
+vertexai
+
+# Database
 sqlalchemy
 psycopg2-binary
+
+# Auth
 passlib[bcrypt]
 python-jose[cryptography]
-google-auth
-requests
-vertexai
+bcrypt
+
+# PDF Processing
+pypdf
+
+# Testing
+pytest>=7.0
+pytest-asyncio>=0.21
