@@ -1,4 +1,5 @@
 google-cloud-speech>=2.36.0
+google-cloud-aiplatform
 sounddevice>=0.4.8
 numpy>=1.25.0
 fastapi
@@ -14,4 +15,3 @@ passlib[bcrypt]
 python-jose[cryptography]
 google-auth
 requests
-vertexai
