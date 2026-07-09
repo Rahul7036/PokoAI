@@ -31,7 +31,8 @@ import tempfile
 from google.oauth2 import service_account
 
 project_id = os.getenv("GCP_PROJECT_ID", "intrepid-honor-484608-e0")
-location = "us-central1"
+location = os.getenv("GCP_LOCATION", "us-central1")
+model_name = os.getenv("MODEL_NAME", "gemini-3.5-flash")
 
 # Construct service account credentials from env vars
 credentials_dict = {
@@ -57,8 +58,8 @@ try:
     
     # Initialize Vertex AI with credentials
     vertexai.init(project=project_id, location=location, credentials=credentials)
-    model = GenerativeModel("gemini-2.0-flash-001")
-    logger.info("Vertex AI initialized successfully from environment variables.")
+    model = GenerativeModel(model_name)
+    logger.info(f"Vertex AI initialized successfully using model '{model_name}' from environment variables.")
 except Exception as e:
     logger.error(f"Vertex AI Init Failed: {e}")
     model = None
