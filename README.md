@@ -8,7 +8,12 @@ first-person answers based on the candidate's resume and the job description.
 ## Features
 
 - **Live Copilot** — streams audio to Google Speech-to-Text; when the interviewer pauses, the
-  question is sent to Gemini and the answer streams onto the screen word by word.
+  question is sent to Gemini and the answer streams onto the screen (~1 s to the first words).
+  - Focus-card screen built for a phone: one answer at a time — a big **Say first** line,
+    3 short talking points, and collapsible detail/code. Swipe for earlier answers.
+  - **Answer now** (answer immediately / force an answer) and **Skip** buttons.
+  - Ignores the candidate reading the suggested answer aloud (echo filter + prompt).
+  - Keeps the phone screen awake and vibrates when a new answer arrives.
   - *Listen to: Mic only* — microphone only.
   - *Listen to: Mic + meeting audio* — also captures the Zoom/Meet/Teams tab (or screen) audio,
     so the copilot hears the interviewer even when the candidate wears headphones.
@@ -25,7 +30,7 @@ first-person answers based on the candidate's resume and the job description.
 | Backend | FastAPI (single file: `app.py`), WebSocket `/ws` for audio |
 | Auth | JWT (HS256, 24 h), bcrypt passwords, Google Identity Services |
 | Database | PostgreSQL via SQLAlchemy (one `users` table) |
-| AI | Vertex AI Gemini (`MODEL_NAME`), Google Cloud Speech-to-Text |
+| AI | Gemini on Vertex AI via `google-genai`, Google Cloud Speech-to-Text |
 | Frontend | One page: `templates/index.html` (vanilla JS, `marked` + `DOMPurify`) |
 
 ## Project structure
@@ -85,8 +90,10 @@ GCP_CLIENT_EMAIL=your-sa@your-project-id.iam.gserviceaccount.com
 GCP_CLIENT_ID=...
 
 # Gemini
-MODEL_NAME=gemini-3.5-flash
 GCP_LOCATION=global
+MODEL_NAME=gemini-3.5-flash          # Prep-Deck + Resume Matcher (quality first)
+COPILOT_MODEL=gemini-3.6-flash       # Live Copilot (speed first); falls back to MODEL_NAME on error
+COPILOT_THINKING_LEVEL=MINIMAL       # MINIMAL = ~1s to first word; leave empty for model default
 
 # Sign in with Google (OAuth Client ID, not secret)
 GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
@@ -134,8 +141,8 @@ UPDATE users SET time_limit_seconds = time_limit_seconds + 1800 WHERE email = 'u
 
 | Problem | Fix |
 |---|---|
-| `Unsupported region for Vertex AI` with `GCP_LOCATION=global` | `google-cloud-aiplatform` is too old; install the version pinned in `requirements.txt` |
-| `404 Publisher model ... not found` | The model isn't available in that location for your project; `gemini-3.5-flash` needs `global` |
+| `404 Publisher model ... not found` | The model isn't available in that location for your project; these models need `GCP_LOCATION=global` |
+| Copilot answers feel slow | Check the startup log line `Gemini initialized ... thinking=MINIMAL`; `COPILOT_THINKING_LEVEL` must be `MINIMAL` |
 | `Could not deserialize key data` | `GCP_PRIVATE_KEY` formatting: one line, double quotes, keep `\n` |
 | Google button: `invalid_client` / origin error | Add the site's origin to the OAuth client; wait ~5 minutes |
 | Google login: "Access blocked" | OAuth app is still in Testing — publish it or add the user as a test user |
