@@ -595,6 +595,9 @@ STATIC_FILES = {
     "/favicon.ico": ("static/favicon.svg", "image/svg+xml"),
     "/apple-touch-icon.png": ("static/apple-touch-icon.png", "image/png"),
     "/og-image.png": ("static/og-image.png", "image/png"),
+    # Floating interview companion panel
+    "/static/companion.js": ("static/companion.js", "application/javascript"),
+    "/static/companion.css": ("static/companion.css", "text/css"),
 }
 
 
@@ -618,9 +621,10 @@ COPILOT_RESUME_CHARS = 6000
 COPILOT_JD_CHARS = 3000
 COPILOT_HISTORY_TURNS = 6
 COPILOT_HISTORY_ANSWER_CHARS = 400
+COPILOT_REGENERATE_MAX_CHARS = 1000   # question text the client may send back with "regenerate"
 
 
-def build_answer_prompt(text, history, ctx, force=False):
+def build_answer_prompt(text, history, ctx, force=False, variant=False):
     history_text = ""
     if history:
         turns = history[-COPILOT_HISTORY_TURNS:]
@@ -636,6 +640,9 @@ def build_answer_prompt(text, history, ctx, force=False):
                   "        That includes: noise or fragments; the candidate speaking (e.g. reading or\n"
                   "        paraphrasing the last 'Suggested' answer, or thinking aloud); the interviewer just\n"
                   "        acknowledging (\"okay\", \"great\", \"that makes sense\").")
+    if variant:
+        decide += ("\n        The candidate asked for a FRESH VERSION of this answer: answer it again with different "
+                   "wording and, where the resume allows, a different example than the last 'Suggested' answer.")
 
     return f"""
         You help a job candidate in a LIVE interview for {ctx['company'] or 'this role'}. The candidate glances
@@ -658,15 +665,25 @@ def build_answer_prompt(text, history, ctx, force=False):
 
         OUTPUT FORMAT (follow exactly, no other text):
         SAY: <one natural opening sentence the candidate can say immediately, max 25 words>
-        - <talking point, max 10 words>
-        - <talking point, max 10 words>
-        - <talking point, max 10 words>
+        - <talking point, max 12 words>
+        - <talking point, max 12 words>
+        - <talking point, max 12 words>
+        (3 to 5 talking points: 3 for simple questions, up to 5 for broad ones)
         DETAIL:
         <2-4 short sentences of extra detail, specific numbers or examples from the resume>
 
         RULES:
+        - In SAY and in every talking point, bold the 1-2 most important keywords (skills, tools, numbers,
+          outcomes) with **double asterisks**. Never bold whole sentences.
         - Behavioral questions ("tell me about a time..."): talking points follow STAR, starting with
-          "Situation:", "Action:", "Result:".
+          "Situation:", "Task:", "Action:", "Result:".
+        - HR questions (why this company, strengths/weaknesses, career goals, notice period, relocation):
+          tie the answer to the job description and company, stay honest and positive, never criticise
+          past employers.
+        - Salary or compensation questions: never invent a number or a current salary that is not in the
+          resume. If the job description states a range, anchor toward its upper half; otherwise SAY asks
+          about the budgeted range or uses the placeholder "[your target range]". Talking points cover total
+          compensation (base, bonus, equity, benefits), flexibility, and the value the candidate brings.
         - Coding questions: SAY explains the approach in one line; talking points cover approach and edge cases;
           DETAIL contains a short code block (language from the JD, default Python) and a line
           "Time: O(...), Space: O(...)".
@@ -901,8 +918,8 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
         pending_since = None
         return segments
 
-    def start_answer(text, force=False):
-        task = asyncio.create_task(answer_question(text, force))
+    def start_answer(text, force=False, variant=False):
+        task = asyncio.create_task(answer_question(text, force, variant))
         answer_tasks.add(task)
         task.add_done_callback(answer_tasks.discard)
 
@@ -933,6 +950,20 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
         last_heard_text = text
         start_answer(text, force=True)
 
+    def regenerate(question):
+        """'Regenerate' button: write a fresh answer to a question that was already answered."""
+        text = str(question or "").strip()[:COPILOT_REGENERATE_MAX_CHARS]
+        if not text:
+            return
+        if answer_tasks:
+            # One answer at a time: a double-click or a busy session must not queue duplicate model calls
+            asyncio.create_task(send_json({
+                "type": "notice",
+                "message": "Still writing an answer. Try again in a moment.",
+            }))
+            return
+        start_answer(text, force=True, variant=True)
+
     def skip_current():
         """'Skip' button: stop the answer being written and forget unanswered speech."""
         take_pending_segments()
@@ -947,7 +978,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
         except Exception:
             pass  # client already gone
 
-    async def answer_question(text, force=False):
+    async def answer_question(text, force=False, variant=False):
         nonlocal answer_counter
         answer_id = None
         started = False
@@ -962,7 +993,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
                 answer_id = answer_counter
                 await send_json({"type": "status", "message": "Listening..."})
 
-                prompt = build_answer_prompt(text, conversation_history, user_context, force=force)
+                prompt = build_answer_prompt(text, conversation_history, user_context, force=force, variant=variant)
                 answer = ""
                 try:
                     async for piece in stream_copilot_answer(prompt):
@@ -1003,7 +1034,10 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
                     await send_json({"type": "answer_chunk", "id": answer_id, "text": answer})
 
                 await send_json({"type": "answer_end", "id": answer_id})
-                conversation_history.append((text, answer.strip()))
+                if variant and conversation_history and conversation_history[-1][0] == text:
+                    conversation_history[-1] = (text, answer.strip())   # replace, don't repeat, the turn
+                else:
+                    conversation_history.append((text, answer.strip()))
         except asyncio.CancelledError:
             # Skipped by the user (or the session ended)
             if started:
@@ -1027,11 +1061,16 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
             elif message.get("text"):
                 # Control messages from the copilot screen
                 try:
-                    command = json.loads(message["text"]).get("type")
+                    payload = json.loads(message["text"])
+                    if not isinstance(payload, dict):
+                        payload = {}
                 except Exception:
-                    command = None
+                    payload = {}
+                command = payload.get("type")
                 if command == "answer_now":
                     answer_now()
+                elif command == "regenerate":
+                    regenerate(payload.get("question"))
                 elif command == "skip":
                     skip_current()
     except WebSocketDisconnect:

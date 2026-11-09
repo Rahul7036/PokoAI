@@ -1,0 +1,333 @@
+/* PrapAI Floating Interview Companion (see companion.js) */
+
+.pc-root {
+    /* Above page content (<= 1000) but below modal overlays (9999+) and toasts (20000) */
+    --pc-z: 5000;
+    --pc-line: rgba(255, 255, 255, 0.07);
+    --pc-text: #f1f5f9;
+    --pc-soft: #cbd5e1;
+    --pc-muted: #94a3b8;
+    --pc-accent: #38bdf8;
+    --pc-green: #22c55e;
+    --pc-amber: #f59e0b;
+    --pc-red: #ef4444;
+}
+
+.pc-root[hidden],
+.pc-root [hidden] { display: none !important; }
+
+/* The pop-out document doesn't get the app's global reset, so set the basics here */
+.pc-root *,
+.pc-root *::before,
+.pc-root *::after { box-sizing: border-box; }
+
+.pc-panel {
+    --pc-alpha: 0.8;   /* background opacity, set from the panel (Alt+[ / Alt+]) */
+    --pc-font: 1;      /* answer text size, set from A- / A+ */
+    --pc-base: 14px;
+    position: fixed;
+    z-index: var(--pc-z);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    color: var(--pc-text);
+    /* Only the background is translucent: text keeps full contrast at every opacity step */
+    background: rgba(11, 18, 36, var(--pc-alpha));
+    border: 1px solid var(--pc-line);
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    overflow: hidden;
+    outline: none;
+}
+
+.pc-panel.pc-compact { --pc-base: 13px; }
+.pc-panel.pc-dragging { user-select: none; }
+
+/* ---------- Title bar (drag handle) ---------- */
+.pc-head {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px 4px 3px 10px;
+    min-height: 32px;
+    cursor: grab;
+    touch-action: none;   /* let pointer events drive the drag on touch screens */
+    flex-shrink: 0;
+}
+.pc-dragging .pc-head { cursor: grabbing; }
+
+.pc-status {
+    margin-left: 6px;
+    font-size: 11px;
+    color: var(--pc-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.pc-spacer { flex: 1; }
+
+.pc-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--pc-muted);
+    flex-shrink: 0;
+}
+.pc-dot.listening { background: var(--pc-green); animation: pc-pulse 1.6s ease-in-out infinite; }
+.pc-dot.thinking { background: var(--pc-amber); animation: pc-pulse 0.9s ease-in-out infinite; }
+.pc-dot.answering { background: var(--pc-accent); }
+.pc-dot.error { background: var(--pc-red); }
+
+@keyframes pc-pulse { 50% { opacity: 0.35; } }
+
+.pc-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--pc-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.pc-icon:hover:not(:disabled) { background: rgba(255, 255, 255, 0.08); color: var(--pc-text); }
+.pc-icon:focus-visible { outline: 2px solid var(--pc-accent); outline-offset: -2px; }
+.pc-icon:disabled { opacity: 0.3; cursor: default; }
+.pc-icon-close:hover:not(:disabled) { background: rgba(239, 68, 68, 0.2); color: #fecaca; }
+.pc-text-btn { font: 700 11px/1 'Inter', system-ui, sans-serif; width: 24px; }
+
+/* ---------- Answer area: scrolls on its own, never the page behind it ---------- */
+.pc-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 4px 12px 10px;
+    font-size: calc(var(--pc-base) * var(--pc-font));
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+}
+
+.pc-empty { color: var(--pc-muted); font-size: 0.9em; padding: 14px 0; text-align: center; }
+
+.pc-q {
+    font-size: 0.82em;
+    color: var(--pc-muted);
+    margin-bottom: 6px;
+    cursor: pointer;
+    border-radius: 4px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.pc-compact .pc-q { -webkit-line-clamp: 1; }
+.pc-q:hover { color: var(--pc-soft); }
+.pc-q:focus-visible { outline: 2px solid var(--pc-accent); outline-offset: 2px; }
+.pc-q.pc-q-full { display: block; -webkit-line-clamp: unset; overflow: visible; }
+
+.pc-tag {
+    display: inline-block;
+    font-size: 0.75em;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--pc-amber);
+    margin-bottom: 4px;
+}
+
+.pc-say { font-size: 1.07em; font-weight: 600; line-height: 1.42; margin-bottom: 8px; }
+.pc-say strong { color: var(--pc-accent); }
+
+.pc-streaming .pc-say:empty::after,
+.pc-streaming .pc-points:not([hidden]) li:last-child::after {
+    content: "\2026";
+    color: var(--pc-muted);
+    animation: pc-pulse 1s ease-in-out infinite;
+}
+
+.pc-points { list-style: none; display: flex; flex-direction: column; gap: 4px; margin: 0 0 8px; padding: 0; }
+.pc-points li { position: relative; padding-left: 14px; }
+.pc-points li::before {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: 0.62em;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--pc-accent);
+}
+.pc-points strong,
+.pc-detail-body strong,
+.pc-plain strong { color: #fff; font-weight: 700; }
+
+.pc-detail summary {
+    cursor: pointer;
+    font-size: 0.82em;
+    font-weight: 600;
+    color: var(--pc-accent);
+    list-style: none;
+    padding: 2px 0;
+    width: fit-content;
+}
+.pc-detail summary::-webkit-details-marker { display: none; }
+.pc-detail summary::after { content: " \25BE"; }
+.pc-detail[open] summary::after { content: " \25B4"; }
+.pc-detail summary:focus-visible { outline: 2px solid var(--pc-accent); outline-offset: 2px; border-radius: 4px; }
+.pc-lbl-short { display: none; }
+.pc-compact .pc-lbl-long { display: none; }
+.pc-compact .pc-lbl-short { display: inline; }
+
+.pc-detail-body,
+.pc-plain { font-size: 0.93em; color: var(--pc-soft); margin-top: 4px; }
+.pc-detail-body p,
+.pc-plain p { margin: 0 0 6px; }
+.pc-detail-body ul,
+.pc-plain ul,
+.pc-plain ol { padding-left: 18px; margin: 0 0 6px; }
+.pc-detail-body pre,
+.pc-plain pre {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    padding: 8px 10px;
+    overflow-x: auto;
+    font-size: 0.88em;
+    margin: 6px 0;
+}
+.pc-detail-body code,
+.pc-plain code { font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; font-size: 0.92em; }
+
+/* ---------- Live "Hearing" line ---------- */
+.pc-live {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 5px 12px;
+    border-top: 1px solid var(--pc-line);
+    font-size: calc(12px * var(--pc-font));
+    color: var(--pc-soft);
+    flex-shrink: 0;
+}
+.pc-live-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--pc-green);
+    flex-shrink: 0;
+}
+.pc-live-text {
+    min-width: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.pc-compact .pc-live-text { -webkit-line-clamp: 1; }
+
+/* ---------- Action bar ---------- */
+.pc-foot {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px 6px;
+    flex-shrink: 0;
+}
+
+.pc-nav { display: inline-flex; align-items: center; }
+.pc-pos { font-size: 11px; color: var(--pc-muted); min-width: 2.2em; text-align: center; }
+
+.pc-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 7px;
+    border: 0;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--pc-text);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.pc-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.12); }
+.pc-btn:focus-visible { outline: 2px solid var(--pc-accent); outline-offset: 1px; }
+.pc-btn:disabled { opacity: 0.35; cursor: default; }
+.pc-btn-primary { background: var(--pc-accent); color: #04121c; }
+.pc-btn-primary:hover:not(:disabled) { background: #7dd3fc; }
+.pc-btn.pc-flash { color: var(--pc-green); }
+
+/* Compact: icon-only actions */
+.pc-compact .pc-lbl { display: none; }
+.pc-compact .pc-btn { width: 30px; padding: 0; justify-content: center; }
+.pc-compact .pc-status { display: none; }
+
+/* ---------- Minimized: title bar only; the answer is kept and redrawn on restore ---------- */
+.pc-minimized .pc-body,
+.pc-minimized .pc-live,
+.pc-minimized .pc-foot,
+.pc-minimized .pc-resize { display: none !important; }
+.pc-minimized .pc-status { display: inline; }
+
+/* ---------- Resize handle ---------- */
+.pc-resize {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 14px;
+    height: 14px;
+    cursor: nwse-resize;
+    touch-action: none;
+    background:
+        linear-gradient(135deg, transparent 58%, var(--pc-muted) 58%, var(--pc-muted) 66%, transparent 66%,
+            transparent 76%, var(--pc-muted) 76%, var(--pc-muted) 84%, transparent 84%);
+    opacity: 0.35;
+}
+.pc-resize:hover { opacity: 0.8; }
+
+/* ---------- Pop-out window (Document Picture-in-Picture) ---------- */
+.pc-pip-body {
+    margin: 0;
+    background: #0b1224;
+    overflow: hidden;
+}
+
+/* A separate OS window can't be see-through, so it's opaque and fills the window */
+.pc-panel.pc-pip {
+    inset: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: #0b1224;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+.pc-pip .pc-head { cursor: default; }
+.pc-pip [data-act="min"],
+.pc-pip [data-act="alpha"],
+.pc-pip .pc-resize { display: none; }
+
+/* ---------- Small screens ---------- */
+@media (max-width: 480px) {
+    .pc-status { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pc-dot, .pc-streaming .pc-say:empty::after,
+    .pc-streaming .pc-points li:last-child::after { animation: none; }
+}
