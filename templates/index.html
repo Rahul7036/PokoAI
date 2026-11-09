@@ -10,7 +10,8 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap"
         rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
     <style>
         :root {
             --bg-dark: #020617;
@@ -697,6 +698,31 @@
             min-width: 80px;
         }
 
+        /* "Listen to" selector next to start/stop */
+        .audio-source {
+            width: auto;
+            margin: 0;
+            padding: 0.45rem 0.7rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .audio-source:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .audio-source option {
+            background: #0f172a;
+            color: white;
+        }
+
         @keyframes v2shimmer {
             0% {
                 background-position: 0% 50%;
@@ -1087,6 +1113,41 @@
             color: var(--text-primary);
             font-family: 'Inter', sans-serif;
             letter-spacing: -0.2px;
+        }
+
+        /* Code blocks in AI answers */
+        .script-text pre {
+            background: rgba(2, 6, 23, 0.85);
+            border: 1px solid var(--glass-border);
+            border-left: 3px solid var(--accent-cyan);
+            border-radius: 10px;
+            padding: 1rem 1.2rem;
+            margin: 0.8rem 0;
+            overflow-x: auto;
+            font-size: 0.95rem;
+            line-height: 1.55;
+        }
+
+        .script-text pre code {
+            background: none;
+            padding: 0;
+            color: #e2e8f0;
+        }
+
+        /* Inline code like `text[::-1]` */
+        .script-text code {
+            font-family: 'JetBrains Mono', Consolas, 'Courier New', monospace;
+            background: rgba(6, 182, 212, 0.12);
+            color: var(--accent-cyan);
+            padding: 0.1em 0.4em;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+
+        .script-text ul,
+        .script-text ol {
+            padding-left: 1.4rem;
+            margin: 0.5rem 0;
         }
 
         @keyframes slideInUp {
@@ -1860,7 +1921,7 @@
         <div class="modal-card glass">
             <h2 style="margin-bottom: 2rem; font-size: 2rem;">Welcome Back</h2>
             <div id="g_id_onload"
-                data-client_id="953884148230-bc93cl6bkckjn04191jg7e36pl0fm4jo.apps.googleusercontent.com"
+                data-client_id="__GOOGLE_CLIENT_ID__"
                 data-callback="handleCredentialResponse" data-auto_prompt="false"></div>
             <div class="g_id_signin" data-type="standard" data-size="large" data-theme="filled_black"
                 data-text="sign_in_with" data-shape="rectangular" data-logo_alignment="left"></div>
@@ -2613,6 +2674,11 @@
                     <div style="display: flex; gap: 0.8rem; align-items: center;">
                         <button id="startBtn" class="btn-circle btn-start" title="Start Listening">▶</button>
                         <button id="stopBtn" class="btn-circle btn-stop" disabled title="Stop Session">■</button>
+                        <select id="audioSource" class="audio-source"
+                            title="What should the copilot listen to? Choose 'Mic + meeting audio' for Zoom/Meet/Teams calls so it hears the interviewer.">
+                            <option value="mic">🎤 Mic only</option>
+                            <option value="mic+meeting">🎤+🖥️ Mic + meeting audio</option>
+                        </select>
                     </div>
                     <div
                         style="font-size: 0.65rem; color: var(--text-secondary); letter-spacing: 1px; font-weight: 700; text-transform: uppercase; opacity: 0.7;">
@@ -2903,6 +2969,42 @@
         function closeLogin() { document.getElementById('login-overlay').classList.add('hidden'); }
         function logout() { localStorage.removeItem('token'); window.location.reload(); }
 
+        function authHeaders() {
+            const token = localStorage.getItem('token');
+            return token ? { 'Authorization': `Bearer ${token}` } : {};
+        }
+
+        function handleAuthFailure() {
+            alert("Your session has expired. Please sign in again.");
+            logout();
+        }
+
+        function showLimitReached(message) {
+            document.getElementById('limit-message').innerText = message;
+            document.getElementById('limit-overlay').classList.remove('hidden');
+        }
+
+        function setCreditBadge(remainingSeconds) {
+            const badge = document.getElementById('creditBadge');
+            if (!badge) return;
+            const mins = Math.floor(remainingSeconds / 60), secs = remainingSeconds % 60;
+            badge.innerText = `${mins}m ${secs}s left`;
+        }
+
+        // Escape any text before putting it into innerHTML (transcripts, AI text, etc.)
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>"']/g, ch => (
+                { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+            ));
+        }
+
+        // Render AI markdown safely: DOMPurify strips scripts, event handlers, javascript: links, etc.
+        function safeMarkdown(md) {
+            const text = String(md ?? '');
+            if (window.DOMPurify && window.marked) return DOMPurify.sanitize(marked.parse(text));
+            return escapeHtml(text); // fail closed: show plain text if a library didn't load
+        }
+
         function checkAuth() {
             const token = localStorage.getItem('token');
             if (token) { showView('dashboard-view'); updateCredits(); }
@@ -3146,19 +3248,22 @@
 
             try {
                 const fd = new FormData(); fd.append('resume_file', resumeFile); fd.append('jd', jd); fd.append('company', company);
-                await fetch('/update_context', { method: 'POST', body: fd });
+                const ctxRes = await fetch('/update_context', { method: 'POST', body: fd, headers: authHeaders() });
+                if (ctxRes.status === 401) { handleAuthFailure(); return; }
 
                 // Fetch Briefing
-                const res = await fetch('/api/generate-briefing', { method: 'POST' });
+                const res = await fetch('/api/generate-briefing', { method: 'POST', headers: authHeaders() });
+                if (res.status === 401) { handleAuthFailure(); return; }
                 const data = await res.json();
+                if (!data.cards) { alert(data.message || "Could not generate cards. Please try again."); }
 
                 if (data.cards) {
                     const container = document.getElementById('prep-deck-container');
                     container.innerHTML = data.cards.map((c, index) => `
                         <div class="prep-card glass" style="animation-delay: ${index * 0.15}s">
-                            <div class="prep-icon">${c.icon}</div>
-                            <div class="prep-title">${c.title}</div>
-                            <div class="prep-content">${c.content}</div>
+                            <div class="prep-icon">${escapeHtml(c.icon)}</div>
+                            <div class="prep-title">${escapeHtml(c.title)}</div>
+                            <div class="prep-content">${escapeHtml(c.content)}</div>
                         </div>
                     `).join('');
                     nextStep(3);
@@ -3179,7 +3284,8 @@
             btn.innerText = "Starting..."; btn.disabled = true;
             try {
                 const fd = new FormData(); fd.append('resume_file', resumeFile); fd.append('jd', jd); fd.append('company', company);
-                await fetch('/update_context', { method: 'POST', body: fd });
+                const ctxRes = await fetch('/update_context', { method: 'POST', body: fd, headers: authHeaders() });
+                if (ctxRes.status === 401) { handleAuthFailure(); return; }
                 document.getElementById('wizard-overlay').classList.add('hidden');
                 btn.innerText = "Start Interview Copilot"; btn.disabled = false;
                 showView('app-view');
@@ -3211,112 +3317,219 @@
         const statusLabel = document.getElementById('statusLabel'), listeningDot = document.getElementById('listeningDot');
         const transcriptDiv = document.getElementById('transcript'), aiOutputDiv = document.getElementById('aiOutput');
 
-        startBtn.addEventListener('click', async () => {
-            const remaining = await updateCredits();
-            if (remaining <= 0) {
-                document.getElementById('limit-message').innerText = "You have no remaining credits. Please contact the admin team for extension.";
-                document.getElementById('limit-overlay').classList.remove('hidden');
-                return;
+        // --- AUDIO CAPTURE ---
+        // An AudioWorklet mixes every connected source (mic + meeting audio) to mono, downsamples
+        // to 16 kHz and converts to 16-bit PCM, which is what Google Speech-to-Text expects.
+        // The AudioContext runs at the device's native rate, so this also works in Firefox/Safari.
+        const PCM_WORKLET_SOURCE = `
+            class Pcm16kProcessor extends AudioWorkletProcessor {
+                constructor() {
+                    super();
+                    this.ratio = sampleRate / 16000;   // e.g. 48000 -> 3, 44100 -> 2.75625
+                    this.pos = 0; this.acc = 0; this.accCount = 0;
+                    this.out = new Int16Array(1600);   // 100 ms of 16 kHz audio per message
+                    this.outLen = 0; this.sumSq = 0; this.n = 0;
+                }
+                process(inputs) {
+                    const channel = inputs[0] && inputs[0][0];
+                    if (!channel) return true;
+                    for (let i = 0; i < channel.length; i++) {
+                        const s = channel[i];
+                        this.acc += s; this.accCount++;
+                        this.sumSq += s * s; this.n++;
+                        this.pos += 1;
+                        if (this.pos >= this.ratio) {
+                            this.pos -= this.ratio;
+                            let v = this.acc / this.accCount;   // average = simple anti-alias filter
+                            this.acc = 0; this.accCount = 0;
+                            v = Math.max(-1, Math.min(1, v));
+                            this.out[this.outLen++] = v < 0 ? v * 0x8000 : v * 0x7FFF;
+                            if (this.outLen === this.out.length) {
+                                const rms = Math.sqrt(this.sumSq / this.n);
+                                this.port.postMessage({ pcm: this.out.buffer, rms }, [this.out.buffer]);
+                                this.out = new Int16Array(1600);
+                                this.outLen = 0; this.sumSq = 0; this.n = 0;
+                            }
+                        }
+                    }
+                    return true;
+                }
             }
+            registerProcessor('pcm-16k', Pcm16kProcessor);
+        `;
+        let pcmWorkletUrl = null, meetingStream = null, meetingSource = null, silentGain = null;
 
+        function getPcmWorkletUrl() {
+            if (!pcmWorkletUrl) {
+                pcmWorkletUrl = URL.createObjectURL(new Blob([PCM_WORKLET_SOURCE], { type: 'application/javascript' }));
+            }
+            return pcmWorkletUrl;
+        }
+
+        // "Listen to" selector: meeting-audio capture needs getDisplayMedia (desktop browsers only)
+        const audioSourceSelect = document.getElementById('audioSource');
+        const canCaptureMeeting = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+        if (!canCaptureMeeting) audioSourceSelect.style.display = 'none';
+        try {
+            const saved = localStorage.getItem('audioSource');
+            if (saved && canCaptureMeeting) audioSourceSelect.value = saved;
+        } catch (e) { }
+        audioSourceSelect.addEventListener('change', () => {
+            try { localStorage.setItem('audioSource', audioSourceSelect.value); } catch (e) { }
+        });
+
+        async function captureMeetingAudio() {
+            // Browsers require video in the request to show the tab/screen picker; we only use the audio.
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+                video: true,
+                audio: true,
+                systemAudio: 'include',
+                selfBrowserSurface: 'exclude',
+            });
+            if (stream.getAudioTracks().length === 0) {
+                stream.getTracks().forEach(t => t.stop());
+                throw new Error('NO_MEETING_AUDIO');
+            }
+            return stream;
+        }
+
+        function updateWaveform(rms) {
+            const level = Math.min(1, (rms || 0) * 8);
+            document.querySelectorAll('.bar').forEach(bar => {
+                bar.style.transform = `scaleY(${0.5 + level})`;
+                bar.style.background = level > 0.25 ? 'var(--accent-cyan)' : 'rgba(6, 182, 212, 0.3)';
+            });
+        }
+
+        startBtn.addEventListener('click', async () => {
+            startBtn.disabled = true;
+            audioSourceSelect.disabled = true;
+            const wantMeeting = canCaptureMeeting && audioSourceSelect.value === 'mic+meeting';
             try {
+                // 1. Meeting audio first: browsers only allow the share picker right after a click
+                if (wantMeeting) {
+                    statusLabel.innerText = "Choose the meeting tab...";
+                    meetingStream = await captureMeetingAudio();
+                }
+
+                const remaining = await updateCredits();
+                if (remaining <= 0) {
+                    forceStopApp();
+                    showLimitReached("You have no remaining credits. Please contact the admin team for extension.");
+                    return;
+                }
+
+                // 2. Microphone BEFORE connecting, so a denied permission never opens a (billed) session
+                globalStream = await navigator.mediaDevices.getUserMedia({
+                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                });
+
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                await audioContext.audioWorklet.addModule(getPcmWorkletUrl());
+                processor = new AudioWorkletNode(audioContext, 'pcm-16k', {
+                    numberOfInputs: 1, numberOfOutputs: 1,
+                    channelCount: 1, channelCountMode: 'explicit', channelInterpretation: 'speakers',
+                });
+
+                input = audioContext.createMediaStreamSource(globalStream);
+                input.connect(processor);
+                if (meetingStream) {
+                    meetingSource = audioContext.createMediaStreamSource(meetingStream);
+                    meetingSource.connect(processor);
+                    meetingStream.getAudioTracks()[0].addEventListener('ended', () => {
+                        if (ws) statusLabel.innerText = "Mic only (sharing stopped)";
+                    });
+                }
+                // Keep the worklet running inside the audio graph without playing any sound
+                silentGain = audioContext.createGain();
+                silentGain.gain.value = 0;
+                processor.connect(silentGain);
+                silentGain.connect(audioContext.destination);
+
+                // 3. Connect to the server. Usage time is billed server-side while this is open.
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const token = localStorage.getItem('token');
-                ws = new WebSocket(`${protocol}//${window.location.host}/ws?token=${token}`);
+                const socket = new WebSocket(`${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`);
+                ws = socket;
 
-                // Start Heartbeat
-                heartbeatInterval = setInterval(async () => {
-                    const token = localStorage.getItem('token');
-                    try {
-                        const res = await fetch('/api/heartbeat', {
-                            method: 'POST',
-                            headers: { 'Authorization': `Bearer ${token}` }
-                        });
-                        const data = await res.json();
-                        if (!res.ok) {
-                            forceStopApp();
-                            if (res.status === 401) {
-                                alert("Session expired. Please log in again.");
-                                logout();
-                            } else {
-                                document.getElementById('limit-message').innerText = "Session limit reached. To extend your access, please contact the admin team.";
-                                document.getElementById('limit-overlay').classList.remove('hidden');
-                            }
-                        } else {
-                            const mins = Math.floor(data.remaining_seconds / 60);
-                            const secs = data.remaining_seconds % 60;
-                            document.getElementById('creditBadge').innerText = `${mins}m ${secs}s left`;
-                        }
-                    } catch (e) { console.error("Heartbeat failed"); }
-                }, 10000);
-
-                ws.onmessage = (e) => {
+                socket.onmessage = (e) => {
                     const data = JSON.parse(e.data);
+                    const thinking = document.getElementById('ai-thinking');
                     if (data.type === 'transcript') updateTranscript(data.transcript, data.is_final);
-                    if (data.type === 'answer') {
-                        document.getElementById('ai-thinking').classList.remove('active');
-                        addAiCard(data.question, data.answer);
+                    if (data.type === 'status') {
+                        if (data.message === 'Listening...') thinking.classList.add('active');
+                        else thinking.classList.remove('active');
                     }
-                    if (data.type === 'status' && data.message === 'Listening...') {
-                        document.getElementById('ai-thinking').classList.add('active');
-                    }
-                };
-                audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
-
-                // Enhanced Mobile Mic Constraints
-                const constraints = {
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true,
-                        sampleRate: 16000
-                    }
+                    if (data.type === 'answer_start') { thinking.classList.remove('active'); startAiCard(data.id, data.question); }
+                    if (data.type === 'answer_chunk') appendAiCard(data.id, data.text);
+                    if (data.type === 'answer_end') endAiCard(data.id);
+                    if (data.type === 'answer') { thinking.classList.remove('active'); addAiCard(data.question, data.answer); }
+                    if (data.type === 'credits') setCreditBadge(data.remaining_seconds);
                 };
 
-                globalStream = await navigator.mediaDevices.getUserMedia(constraints);
-                input = audioContext.createMediaStreamSource(globalStream);
-
-                // Volume Meter for visual feedback
-                const analyser = audioContext.createAnalyser();
-                analyser.fftSize = 256;
-                input.connect(analyser);
-
-                processor = audioContext.createScriptProcessor(4096, 1, 1);
-                processor.onaudioprocess = (e) => {
-                    if (ws && ws.readyState === WebSocket.OPEN) {
-                        const inputData = e.inputBuffer.getChannelData(0);
-                        ws.send(floatTo16BitPCM(inputData));
-
-                        // Dynamic Waveform Intensity
-                        const buffer = new Uint8Array(analyser.frequencyBinCount);
-                        analyser.getByteFrequencyData(buffer);
-                        const volume = buffer.reduce((a, b) => a + b) / buffer.length;
-                        const bars = document.querySelectorAll('.bar');
-                        bars.forEach((bar, i) => {
-                            const scale = 0.5 + (volume / 128);
-                            bar.style.transform = `scaleY(${scale})`;
-                            bar.style.background = volume > 40 ? 'var(--accent-cyan)' : 'rgba(6, 182, 212, 0.3)';
-                        });
+                socket.onclose = (e) => {
+                    // ws is set to null when the user stops the session themselves
+                    if (ws !== socket) return;
+                    forceStopApp();
+                    if (e.code === 4003) {
+                        setCreditBadge(0);
+                        showLimitReached("Session limit reached. To extend your access, please contact the admin team.");
+                    } else if (e.code === 4001) {
+                        handleAuthFailure();
+                    } else {
+                        statusLabel.innerText = "Disconnected";
                     }
                 };
-                input.connect(processor); processor.connect(audioContext.destination);
-                statusLabel.innerText = "Listening...";
+
+                processor.port.onmessage = (e) => {
+                    if (ws && ws.readyState === WebSocket.OPEN) ws.send(e.data.pcm);
+                    updateWaveform(e.data.rms);
+                };
+
+                if (audioContext.state === 'suspended') await audioContext.resume();
+                statusLabel.innerText = meetingStream ? "Listening (mic + meeting)" : "Listening...";
                 listeningDot.classList.remove('hidden');
                 document.getElementById('waveform').classList.add('active');
                 startBtn.disabled = true; stopBtn.disabled = false;
-            } catch (e) { alert("Mic error."); }
+            } catch (e) {
+                console.error(e);
+                const cancelledSharing = wantMeeting && !meetingStream;
+                forceStopApp();
+                if (e && e.message === 'NO_MEETING_AUDIO') {
+                    alert("No meeting audio was shared.\n\nWhen the share window opens, pick the browser tab with your Zoom/Meet/Teams call and turn on 'Also share tab audio' (or choose 'Entire screen' and turn on 'Also share system audio').\n\nOr switch 'Listen to' to 'Mic only'.");
+                } else if (cancelledSharing) {
+                    alert("Screen sharing was cancelled.\n\nTo hear the interviewer, share the meeting tab with audio, or switch 'Listen to' to 'Mic only'.");
+                } else {
+                    alert("Could not access the microphone. Please allow microphone access and try again.");
+                }
+            }
         });
 
+        // Safe to call more than once
         function forceStopApp() {
-            if (heartbeatInterval) clearInterval(heartbeatInterval);
-            if (processor) { input.disconnect(); processor.disconnect(); }
-            if (globalStream) globalStream.getTracks().forEach(t => t.stop());
-            if (audioContext) audioContext.close();
-            if (ws) ws.close();
+            if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
+            const socket = ws;
+            ws = null; // tells the onclose handler this stop was intentional
+            if (processor) {
+                processor.port.onmessage = null;
+                try { processor.disconnect(); } catch (e) { }
+                processor = null;
+            }
+            [input, meetingSource, silentGain].forEach(node => {
+                if (node) { try { node.disconnect(); } catch (e) { } }
+            });
+            input = meetingSource = silentGain = null;
+            if (globalStream) { globalStream.getTracks().forEach(t => t.stop()); globalStream = null; }
+            if (meetingStream) { meetingStream.getTracks().forEach(t => t.stop()); meetingStream = null; }
+            if (audioContext) { audioContext.close().catch(() => { }); audioContext = null; }
+            if (socket && socket.readyState <= WebSocket.OPEN) socket.close();
             statusLabel.innerText = "Stopped";
             listeningDot.classList.add('hidden');
             document.getElementById('waveform').classList.remove('active');
+            document.getElementById('ai-thinking').classList.remove('active');
+            updateWaveform(0);
             startBtn.disabled = false; stopBtn.disabled = true;
+            audioSourceSelect.disabled = false;
         }
 
         stopBtn.addEventListener('click', forceStopApp);
@@ -3343,7 +3556,7 @@
                 currentBubble.className = 'bubble bubble-interviewer';
                 feed.appendChild(currentBubble); // Append to bottom
             }
-            currentBubble.innerHTML = `<span class="${isFinal ? '' : 'interim'}">${text}</span>`;
+            currentBubble.innerHTML = `<span class="${isFinal ? '' : 'interim'}">${escapeHtml(text)}</span>`;
 
             if (isFinal) {
                 currentBubble.classList.add('final');
@@ -3360,40 +3573,63 @@
 
             const card = document.createElement('div');
             card.className = 'ai-card glass';
-
-            // Intelligent grouping: Extract first sentence or bullet as "Talking Point" if possible
-            const plainText = a.replace(/[#*`]/g, '');
-            const firstSentence = plainText.split(/[.!?]/)[0];
-
             card.innerHTML = `
                 <div style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 2px; color: var(--accent-cyan); margin-bottom: 0.5rem; font-weight: 800; opacity: 0.6;">Detected Question</div>
-                <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 1.5rem; color: white;">"${q}"</div>
-                
+                <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 1.5rem; color: white;">"${escapeHtml(q)}"</div>
+
                 <div class="talking-point mono">
                     <span style="display:block; font-size: 0.6rem; opacity: 0.7; margin-bottom: 0.2rem;">CORE CONCEPT:</span>
-                    ${firstSentence}...
+                    <span class="core-concept"></span>
                 </div>
 
-                <div class="script-text">
-                    ${marked.parse(a)}
-                </div>
+                <div class="script-text"></div>
             `;
+            renderAiCardBody(card, a);
             feed.appendChild(card);
 
             // Scroll with slight delay for the slide animation
             setTimeout(() => {
                 scrollToBottom();
             }, 100);
+            return card;
         }
 
-        function floatTo16BitPCM(input) {
-            let output = new DataView(new ArrayBuffer(input.length * 2));
-            for (let i = 0; i < input.length; i++) {
-                let s = Math.max(-1, Math.min(1, input[i]));
-                s = s < 0 ? s * 0x8000 : s * 0x7FFF;
-                output.setInt16(i * 2, s, true);
+        function renderAiCardBody(card, a) {
+            // Intelligent grouping: first sentence as the "Core Concept" talking point
+            const plainText = a.replace(/[#*`]/g, '').trim();
+            const firstSentence = plainText.split(/[.!?]/)[0];
+            card.querySelector('.core-concept').innerHTML = firstSentence ? `${escapeHtml(firstSentence)}...` : '...';
+            card.querySelector('.script-text').innerHTML = safeMarkdown(a);
+        }
+
+        // Streaming answers: the server sends answer_start, then answer_chunk pieces, then answer_end
+        const streamingCards = {};
+
+        function startAiCard(id, question) {
+            streamingCards[id] = { card: addAiCard(question, ''), text: '', timer: null };
+        }
+
+        function appendAiCard(id, piece) {
+            const s = streamingCards[id];
+            if (!s) return;
+            s.text += piece;
+            // Re-render at most ~15 times/second; markdown is re-parsed from the full text each time
+            if (!s.timer) {
+                s.timer = setTimeout(() => {
+                    s.timer = null;
+                    renderAiCardBody(s.card, s.text);
+                    scrollToBottom();
+                }, 60);
             }
-            return output.buffer;
+        }
+
+        function endAiCard(id) {
+            const s = streamingCards[id];
+            if (!s) return;
+            if (s.timer) clearTimeout(s.timer);
+            renderAiCardBody(s.card, s.text);
+            scrollToBottom();
+            delete streamingCards[id];
         }
 
         function showResumeReview() {
@@ -3405,8 +3641,10 @@
             if (!f || !jd) return;
             try {
                 const fd = new FormData(); fd.append('resume', f); fd.append('job_description', jd);
-                const res = await fetch('/api/analyze-resume', { method: 'POST', body: fd });
+                const res = await fetch('/api/analyze-resume', { method: 'POST', body: fd, headers: authHeaders() });
+                if (res.status === 401) { handleAuthFailure(); return; }
                 const data = await res.json();
+                if (!res.ok) { alert(data.detail || "Analysis failed."); return; }
                 document.getElementById('review-input-section').classList.add('hidden');
                 document.getElementById('review-results-section').classList.remove('hidden');
 
@@ -3435,11 +3673,12 @@
                 }
 
                 // Populating lists
-                document.getElementById('missing-skills-list').innerHTML = data.missing_skills.length > 0
-                    ? data.missing_skills.map(s => `<li>${s}</li>`).join('')
+                const missingSkills = data.missing_skills || [], suggestions = data.suggestions || [];
+                document.getElementById('missing-skills-list').innerHTML = missingSkills.length > 0
+                    ? missingSkills.map(s => `<li>${escapeHtml(s)}</li>`).join('')
                     : '<li style="color: var(--success);">No major gaps found!</li>';
 
-                document.getElementById('suggestions-list').innerHTML = data.suggestions.map(s => `<li>${s}</li>`).join('');
+                document.getElementById('suggestions-list').innerHTML = suggestions.map(s => `<li>${escapeHtml(s)}</li>`).join('');
             } catch (e) { alert("Analysis failed."); }
         }
 
