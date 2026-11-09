@@ -13,7 +13,7 @@ from google.auth.transport import requests
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from database import get_db
+from database import get_db, SessionLocal
 import models
 
 load_dotenv()
@@ -22,7 +22,12 @@ load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY", "super_secret_key_change_this") 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 
-GOOGLE_CLIENT_ID = "953884148230-bc93cl6bkckjn04191jg7e36pl0fm4jo.apps.googleusercontent.com"
+# OAuth Client ID for "Sign in with Google" (not a secret). Set GOOGLE_CLIENT_ID in .env;
+# the fallback keeps production working if the variable hasn't been added there yet.
+GOOGLE_CLIENT_ID = os.getenv(
+    "GOOGLE_CLIENT_ID",
+    "953884148230-bc93cl6bkckjn04191jg7e36pl0fm4jo.apps.googleusercontent.com",
+)
 
 # OAuth2 Scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
@@ -84,5 +89,20 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account pending approval. Please contact support."
         )
-        
+
     return user
+
+def get_current_user_detached(token: str = Depends(oauth2_scheme)):
+    """Like get_current_user, but returns the DB connection to the pool immediately.
+
+    Use for endpoints that only need to know who the user is and then do slow work
+    (AI calls, PDF parsing), so they don't hold a DB connection for seconds.
+    The returned user is read-only (changes to it are not saved).
+    """
+    db = SessionLocal()
+    try:
+        user = get_current_user(token, db)
+        db.expunge(user)
+        return user
+    finally:
+        db.close()

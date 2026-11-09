@@ -1,340 +1,157 @@
-# 🎯 PrapAI - Real-Time Interview Copilot
+# PrapAI — Real-Time Interview Copilot
 
-A production-ready AI-powered interview assistant that listens to live interviews, understands questions, and provides intelligent real-time suggestions to help candidates perform their best.
+Live at **https://prapai.com**
 
-## ✨ Features
+PrapAI listens to a live interview, transcribes it in real time, and streams suggested
+first-person answers based on the candidate's resume and the job description.
 
-### Core Functionality
-- **🎧 Live Interview Copilot**: Real-time audio transcription and AI-powered response suggestions during interviews
-- **📄 Resume Matcher**: Analyzes resume-JD alignment with actionable improvement suggestions
-- **🔐 Secure Authentication**: Google OAuth + Manual signup with admin approval workflow
-- **⏱️ Usage Limits**: 5-minute free tier with visual credit tracking
-- **👤 User Profiles**: Personalized dashboard with name and profession data
+## Features
 
-### Security & Access Control
-- Manual account approval system (all new accounts start as inactive)
-- JWT-based authentication
-- Protected secrets via `.env` and `.gitignore`
-- Role-based access control ready
+- **Live Copilot** — streams audio to Google Speech-to-Text; when the interviewer pauses, the
+  question is sent to Gemini and the answer streams onto the screen (~1 s to the first words).
+  - Focus-card screen built for a phone: one answer at a time — a big **Say first** line,
+    3 short talking points, and collapsible detail/code. Swipe for earlier answers.
+  - **Answer now** (answer immediately / force an answer) and **Skip** buttons.
+  - Ignores the candidate reading the suggested answer aloud (echo filter + prompt).
+  - Keeps the phone screen awake and vibrates when a new answer arrives.
+  - *Listen to: Mic only* — microphone only.
+  - *Listen to: Mic + meeting audio* — also captures the Zoom/Meet/Teams tab (or screen) audio,
+    so the copilot hears the interviewer even when the candidate wears headphones.
+- **Prep-Deck** — four quick briefing cards (pitch, project to mention, weak spot, top skill).
+- **Resume Matcher** — strict resume-vs-JD score, verdict, missing skills and fixes.
+- **Accounts** — email + password with a 6-digit email OTP, or Sign in with Google.
+- **Credits** — each account gets 20 minutes of Copilot time (`time_limit_seconds = 1200`),
+  metered by the server while a Copilot session is open.
 
-### UI/UX Highlights
-- **Responsive Design**: Fully mobile-compatible (768px+ breakpoints)
-- **Premium Aesthetics**: Glassmorphism, neon gradients, and smooth animations
-- **Real-time Feedback**: Pulsating status indicators and live AI suggestion cards
-- **Mission Control Theme**: Radar-pulse backgrounds and voice waveform visualizations
+## Tech stack
 
----
+| Layer | What |
+|---|---|
+| Backend | FastAPI (single file: `app.py`), WebSocket `/ws` for audio |
+| Auth | JWT (HS256, 24 h), bcrypt passwords, Google Identity Services |
+| Database | PostgreSQL via SQLAlchemy (one `users` table) |
+| AI | Gemini on Vertex AI via `google-genai`, Google Cloud Speech-to-Text |
+| Frontend | One page: `templates/index.html` (vanilla JS, `marked` + `DOMPurify`) |
 
-## 🚀 Quick Start
+## Project structure
 
-### Prerequisites
-- **Python 3.8+**
-- **PostgreSQL** (or compatible database)
-- **Google Cloud Project** (for Vertex AI & OAuth)
-- **Node.js** (optional, for frontend tooling)
+```
+app.py                  FastAPI app: auth routes, credits, AI endpoints, /ws copilot
+auth.py                 Password hashing, JWT, Google token check, current-user dependencies
+database.py             SQLAlchemy engine/session (reads DB_STRING)
+models.py               User model
+templates/index.html    The whole frontend (landing, dashboard, copilot, resume matcher)
+templates/privacy.html  Privacy policy served at /privacy
+requirements.txt        Python dependencies
+run_server.bat          Windows shortcut to start the dev server
+handler.py              Dev utility: list available Gemini models (not used by the app)
+realtime_transcribe.py  Dev utility: local mic -> Speech-to-Text test (not used by the app)
+```
 
-### Installation
+## Setup
 
-1. **Clone the repository**
-   ```bash
-   git clone <your-repo-url>
-   cd PrapAIMVP
-   ```
-
-2. **Create and activate virtual environment**
-   ```bash
-   # Windows
-   python -m venv venv
-   .\venv\Scripts\activate
-
-   # macOS/Linux
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Set up environment variables**
-   
-   Create a `.env` file in the root directory:
-   ```env
-   # Google Cloud
-   GOOGLE_APPLICATION_CREDENTIALS=path/to/your-service-account-key.json
-   API_KEY=your_google_api_key
-   
-   # Database
-   DB_STRING=postgresql://username:password@localhost:5432/prapai
-   
-   # Optional
-   HUG_KEY=your_huggingface_key
-   ```
-
-5. **Set up the database**
-   
-   Create a PostgreSQL database and run the migration:
-   ```bash
-   python migrate_db.py  # Adds profile and approval columns
-   ```
-
-6. **Configure Google OAuth**
-   
-   - Go to [Google Cloud Console](https://console.cloud.google.com/)
-   - Create OAuth 2.0 credentials
-   - Add authorized origins: `http://localhost:8000`
-   - Add authorized redirect URIs: `http://localhost:8000`
-   - Update the `client_id` in `templates/index.html` (line ~819)
-
-7. **Run the application**
-   ```bash
-   uvicorn app:app --reload
-   ```
-   
-   Visit `http://localhost:8000`
-
----
-
-## 🐳 Docker Deployment (Recommended)
-
-### Quick Start with Docker
-
-1. **Prerequisites**
-   - Docker Desktop installed
-   - Docker Compose installed
-   - Google Cloud service account JSON file
-
-2. **Setup**
-   ```bash
-   # Clone the repository
-   git clone <your-repo-url>
-   cd PrapAI
-
-   # Copy your Google service account JSON to credentials folder
-   mkdir credentials
-   cp /path/to/your-service-account.json credentials/service-account.json
-
-   # Copy and configure environment file
-   cp .env.docker .env
-   # Edit .env and add your API_KEY and other credentials
-   ```
-
-3. **Run with Docker Compose**
-   ```bash
-   # Build and start all services (app + PostgreSQL)
-   docker-compose up -d
-
-   # View logs
-   docker-compose logs -f web
-
-   # Stop services
-   docker-compose down
-   ```
-
-4. **Access the application**
-   - App: `http://localhost:8000`
-   - Database: `localhost:5432` (credentials in docker-compose.yml)
-
-5. **Run database migrations**
-   ```bash
-   # Execute migration inside the container
-   docker-compose exec web python migrate_db.py
-   ```
-
-### Manual Docker Build
+### 1. Python environment
 
 ```bash
-# Build the image
-docker build -t prapai:latest .
+python -m venv venv
+# Windows
+.\venv\Scripts\activate
+# macOS / Linux
+source venv/bin/activate
 
-# Run the container
-docker run -d \
-  -p 8000:8000 \
-  -e DB_STRING="your_db_string" \
-  -e API_KEY="your_api_key" \
-  -v $(pwd)/credentials:/app/credentials \
-  --name prapai \
-  prapai:latest
+pip install -r requirements.txt
 ```
 
-### Production Deployment
+### 2. Google Cloud
 
-For cloud deployment (GCP, AWS, Azure):
+In your Google Cloud project:
+
+1. Link a billing account.
+2. Enable **Vertex AI API** (`aiplatform.googleapis.com`, now shown as "Agent Platform API")
+   and **Cloud Speech-to-Text API** (`speech.googleapis.com`).
+3. Create a service account with the roles **Vertex AI User** and **Cloud Speech Client**,
+   then create a **JSON key** for it. If key creation is blocked, override the org policy
+   `iam.disableServiceAccountKeyCreation` for the project.
+4. **Google Auth Platform**: set app name, home page (`https://prapai.com`), privacy policy
+   (`https://prapai.com/privacy`) and authorized domain; create a **Web application** OAuth
+   client with JavaScript origins `http://localhost`, `http://localhost:8000` and
+   `https://prapai.com`; then **Publish app**.
+
+### 3. `.env`
+
+Create `.env` in the project root (never commit it):
+
+```env
+# Google Cloud service account (copy from the JSON key)
+GCP_PROJECT_ID=your-project-id
+GCP_PRIVATE_KEY_ID=...
+GCP_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+GCP_CLIENT_EMAIL=your-sa@your-project-id.iam.gserviceaccount.com
+GCP_CLIENT_ID=...
+
+# Gemini
+GCP_LOCATION=global
+MODEL_NAME=gemini-3.5-flash          # Prep-Deck + Resume Matcher (quality first)
+COPILOT_MODEL=gemini-3.6-flash       # Live Copilot (speed first); falls back to MODEL_NAME on error
+COPILOT_THINKING_LEVEL=MINIMAL       # MINIMAL = ~1s to first word; leave empty for model default
+
+# Sign in with Google (OAuth Client ID, not secret)
+GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
+
+# Database
+DB_STRING=postgresql://user:password@host:5432/dbname
+
+# JWT signing key: a long random string (keep it the same across deploys)
+SECRET_KEY=change-me
+
+# Gmail account used to send OTP emails (use a Gmail App Password)
+EMAIL_USER=you@gmail.com
+EMAIL_PASS=your-app-password
+```
+
+`GCP_PRIVATE_KEY` must be one line, in double quotes, with the `\n` sequences kept as-is.
+
+### 4. Run
 
 ```bash
-# Tag and push to container registry
-docker tag prapai:latest gcr.io/your-project/prapai:latest
-docker push gcr.io/your-project/prapai:latest
-
-# Deploy to Cloud Run (GCP example)
-gcloud run deploy prapai \
-  --image gcr.io/your-project/prapai:latest \
-  --platform managed \
-  --region us-central1 \
-  --allow-unauthenticated
+python -m uvicorn app:app --reload
 ```
 
----
+Open http://localhost:8000. Tables are created automatically on startup.
 
-## 📂 Project Structure
+## Deployment notes
 
-```
-PrapAIMVP/
-├── app.py                  # FastAPI application & routes
-├── auth.py                 # JWT authentication logic
-├── models.py               # SQLAlchemy User model
-├── database.py             # Database connection setup
-├── ai_utils.py             # Vertex AI integration
-├── templates/
-│   └── index.html          # Single-page application UI
-├── .env                    # Environment variables (not tracked)
-├── .gitignore              # Git ignore rules
-├── requirements.txt        # Python dependencies
-└── README.md               # This file
-```
+- **Run a single server process** (one uvicorn worker). Each user's resume/JD is kept in that
+  process's memory (never in the database), so multiple workers would not share it.
+- Serve over **HTTPS** — browsers only allow microphone and meeting-audio capture on secure pages
+  (and on `localhost`).
+- Add the production URL to the OAuth client's **Authorized JavaScript origins**.
+- `/health` returns `{"status": "ok"}` for uptime checks.
 
----
+## Administration
 
-## 🔐 User Management & Approval
+New email accounts become active after OTP verification; Google accounts are active
+immediately. To give a user more Copilot time:
 
-### New User Registration Flow
-1. User signs up (manual or Google)
-2. Account is created with `is_active = False`
-3. User sees "Pending Approval" message
-4. Admin manually approves in the database
-
-### Approving a User (Admin)
 ```sql
--- Connect to your PostgreSQL database
-psql -U username -d prapai
-
--- Activate a user
-UPDATE users SET is_active = true WHERE email = 'user@example.com';
+UPDATE users SET time_limit_seconds = time_limit_seconds + 1800 WHERE email = 'user@example.com';
 ```
 
----
+## Troubleshooting
 
-## 📱 Mobile Compatibility
+| Problem | Fix |
+|---|---|
+| `404 Publisher model ... not found` | The model isn't available in that location for your project; these models need `GCP_LOCATION=global` |
+| Copilot answers feel slow | Check the startup log line `Gemini initialized ... thinking=MINIMAL`; `COPILOT_THINKING_LEVEL` must be `MINIMAL` |
+| `Could not deserialize key data` | `GCP_PRIVATE_KEY` formatting: one line, double quotes, keep `\n` |
+| Google button: `invalid_client` / origin error | Add the site's origin to the OAuth client; wait ~5 minutes |
+| Google login: "Access blocked" | OAuth app is still in Testing — publish it or add the user as a test user |
+| Copilot doesn't hear the interviewer | Use **Listen to: Mic + meeting audio** and enable "Also share tab audio" in the share dialog |
 
-The application is **fully responsive** and optimized for:
-- ✅ **Desktop** (1024px+)
-- ✅ **Tablet** (768px - 1024px)
-- ✅ **Mobile** (320px - 768px)
+## Contact
 
-### Mobile Optimizations
-- Stacked layouts for dashboard and copilot views
-- Touch-friendly buttons and navigation
-- Collapsible sidebar on mobile
-- Adaptive font sizes and spacing
+pokoai0206@gmail.com
 
----
+## License
 
-## 🛠️ Development
-
-### Running in Development Mode
-```bash
-# With auto-reload
-uvicorn app:app --reload
-
-# Custom host/port
-uvicorn app:app --host 0.0.0.0 --port 8080 --reload
-```
-
-### Database Schema Updates
-If you modify `models.py`, create a migration script or use Alembic:
-```bash
-# Example manual migration
-python migrate_db.py
-```
-
----
-
-## 🚨 Production Deployment Checklist
-
-- [ ] Update `GOOGLE_APPLICATION_CREDENTIALS` to production service account
-- [ ] Set strong `SECRET_KEY` for JWT in `auth.py`
-- [ ] Use production PostgreSQL instance
-- [ ] Enable HTTPS and update OAuth redirect URIs
-- [ ] Set `--workers` for uvicorn/gunicorn
-- [ ] Configure CORS for your production domain
-- [ ] Set up monitoring (e.g., Sentry, Google Cloud Monitoring)
-- [ ] Review and remove `migrate_db.py` after initial deployment
-
----
-
-## 📦 Dependencies
-
-### Backend
-- **FastAPI**: Web framework
-- **SQLAlchemy**: ORM
-- **psycopg2**: PostgreSQL adapter
-- **python-jose**: JWT handling
-- **passlib**: Password hashing
-- **google-cloud-aiplatform**: Vertex AI
-- **google-cloud-speech**: Speech-to-Text
-- **google-cloud-texttospeech**: Text-to-Speech
-- **pypdf**: PDF parsing
-
-### Frontend
-- **Vanilla JS**: No framework required
-- **Marked.js**: Markdown rendering
-- **Google Identity Services**: OAuth integration
-
----
-
-## 🎨 Design Philosophy
-
-- **Glassmorphism**: Frosted glass effects for depth
-- **Neon Accents**: Cyan and purple gradients for vibrancy
-- **Micro-animations**: Pulse effects, floating elements, and smooth transitions
-- **Mission Control**: Radar grids and tactical HUD aesthetics
-
----
-
-## 🐛 Troubleshooting
-
-### `ModuleNotFoundError: No module named 'vertexai'`
-**Solution**: Ensure you're running from the virtual environment:
-```bash
-.\venv\Scripts\activate  # Windows
-source venv/bin/activate  # macOS/Linux
-```
-
-### Database connection errors
-**Solution**: Verify `DB_STRING` in `.env` and ensure PostgreSQL is running:
-```bash
-# Test connection
-psql -U username -d prapai
-```
-
-### Google OAuth `invalid_client` error
-**Solution**: 
-1. Check `client_id` matches Google Cloud Console
-2. Whitelist `http://localhost:8000` in authorized origins
-3. Add your email to test users if project is in "Testing" mode
-
----
-
-## 📄 License
-
-Proprietary - All rights reserved.
-
----
-
-## 👨‍💻 Author
-
-**PrapAI Team**  
-For support or inquiries: prepai0206@gmail.com
-
----
-
-## 🙏 Acknowledgments
-
-- Google Cloud Platform (Vertex AI, Speech API)
-- FastAPI community
-- The open-source community
-
----
-
-**Ready to ace your next interview? Let's go! 🚀**
+Proprietary — all rights reserved.
