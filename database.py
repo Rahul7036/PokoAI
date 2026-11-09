@@ -12,9 +12,13 @@ SQLALCHEMY_DATABASE_URL = os.getenv("DB_STRING")
 if not SQLALCHEMY_DATABASE_URL:
     raise ValueError("DB_STRING not found in .env")
 
-# Verify SSL naming for Neon/Postgres compatibility
+# Normalize the URL and name the driver explicitly (psycopg2, from psycopg2-binary).
+# Newer SQLAlchemy versions default "postgresql://" to a different driver (psycopg 3),
+# which would crash on startup if it isn't installed.
 if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
     SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
+if SQLALCHEMY_DATABASE_URL.startswith("postgresql://"):
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,

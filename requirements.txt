@@ -9,8 +9,8 @@ python-dotenv
 huggingface_hub
 pypdf
 python-multipart
-sqlalchemy
-psycopg2-binary
+SQLAlchemy==2.0.45
+psycopg2-binary==2.9.11
 passlib[bcrypt]
 python-jose[cryptography]
 google-auth
