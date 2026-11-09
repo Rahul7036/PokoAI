@@ -508,6 +508,11 @@ async def get():
             return HTMLResponse(content=f.read())
     return HTMLResponse(content="<h1>Error: templates/index.html not found</h1>")
 
+@app.get("/privacy")
+async def privacy_policy():
+    with open("templates/privacy.html", "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read())
+
 async def get_vertex_response(text, history):
     if not model:
         return "Error: Vertex AI not initialized."
