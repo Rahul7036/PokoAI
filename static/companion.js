@@ -132,9 +132,14 @@
                 <div class="pc-tag" data-skipped hidden>Skipped</div>
                 <div class="pc-say" data-say></div>
                 <ul class="pc-points" data-points></ul>
+                <div class="pc-explain script-text" data-explain hidden></div>
                 <details class="pc-detail" data-detail-wrap hidden>
-                    <summary><span class="pc-lbl-long">Detailed explanation</span><span class="pc-lbl-short">More</span></summary>
+                    <summary><span class="pc-lbl-long" data-detail-lbl>Code example</span><span class="pc-lbl-short" data-detail-lbl-short>Code</span></summary>
                     <div class="pc-detail-body script-text" data-detail></div>
+                </details>
+                <details class="pc-detail pc-project" data-project-wrap hidden>
+                    <summary><span class="pc-lbl-long">Link it to your project</span><span class="pc-lbl-short">Project</span></summary>
+                    <div class="pc-detail-body script-text" data-project></div>
                 </details>
                 <div class="pc-plain script-text" data-plain hidden></div>
             </div>
@@ -188,6 +193,7 @@
             y: isFiniteNum(saved.y) ? saved.y : null,
             index: -1,                 // which answer is shown; -1 = follow the latest
             detailOpen: new Map(),     // answer id -> details expanded?
+            projectOpen: new Map(),    // answer id -> "link it to your project" expanded?
             qExpanded: false,          // full question shown instead of the short preview
             transcript: '',            // live speech line (what is being heard right now)
             scrollTop: 0,              // answer scroll position, kept across minimize/restore
@@ -216,6 +222,8 @@
                 pos: q('[data-pos]'), body: q('[data-body]'), empty: q('[data-empty]'), answer: q('[data-answer]'),
                 q: q('[data-q]'), skipped: q('[data-skipped]'), say: q('[data-say]'), points: q('[data-points]'),
                 detailWrap: q('[data-detail-wrap]'), detail: q('[data-detail]'), plain: q('[data-plain]'),
+                projectWrap: q('[data-project-wrap]'), project: q('[data-project]'), explain: q('[data-explain]'),
+                detailLbl: q('[data-detail-lbl]'), detailLblShort: q('[data-detail-lbl-short]'),
                 resize: q('[data-resize]'), live: q('[data-live]'), liveText: q('[data-live-text]'),
                 prev: q('[data-act="prev"]'), next: q('[data-act="next"]'), alphaBtn: q('[data-act="alpha"]'),
                 viewBtn: q('[data-act="view"]'), pip: q('[data-act="pip"]'), min: q('[data-act="min"]'),
@@ -241,6 +249,10 @@
             el.detailWrap.addEventListener('toggle', () => {
                 const a = currentAnswer();
                 if (a) state.detailOpen.set(a.id, el.detailWrap.open);
+            });
+            el.projectWrap.addEventListener('toggle', () => {
+                const a = currentAnswer();
+                if (a) state.projectOpen.set(a.id, el.projectWrap.open);
             });
             el.head.addEventListener('dblclick', (e) => {
                 if (!e.target.closest('button')) setView(state.view === 'compact' ? 'expanded' : 'compact');
@@ -515,7 +527,9 @@
             const parts = [];
             if (p.say) parts.push(plain(p.say));
             if (p.points.length) parts.push(p.points.map(pt => `• ${plain(pt)}`).join('\n'));
-            if (p.detail) parts.push(p.detail);
+            if (p.explain) parts.push(plain(p.explain));
+            if (p.code || p.detail) parts.push(p.code || p.detail);
+            if (p.project) parts.push(`Link to my project: ${plain(p.project)}`);
             return parts.join('\n\n');
         }
 
@@ -551,14 +565,34 @@
             if (usePlain) {
                 el.plain.innerHTML = o.markdown(a.text);
                 el.detailWrap.hidden = true;
+                el.projectWrap.hidden = true;
+                el.explain.hidden = true;
                 return;
             }
-            el.say.innerHTML = o.inline(p.say);
+            // The plain-words explanation is always visible
+            el.explain.hidden = !p.explain;
+            if (p.explain) el.explain.innerHTML = o.markdown(p.explain);
+            // First sentence prominent, the explanation after it smaller (same as the main screen)
+            el.say.innerHTML = p.sayRest
+                ? `${o.inline(p.sayLead)}<span class="pc-say-rest">${o.inline(p.sayRest)}</span>`
+                : o.inline(p.say);
             el.points.innerHTML = p.points.map(pt => `<li>${o.inline(pt)}</li>`).join('');
-            el.detailWrap.hidden = !p.detail;
-            if (p.detail) {
-                el.detail.innerHTML = o.markdown(p.detail);
-                if (!state.detailOpen.has(a.id) && p.detail.includes('```')) state.detailOpen.set(a.id, true);
+            el.projectWrap.hidden = !p.project;
+            if (p.project) {
+                el.project.innerHTML = o.markdown(p.project);
+                const wantProject = !!state.projectOpen.get(a.id);
+                if (el.projectWrap.open !== wantProject) el.projectWrap.open = wantProject;
+            }
+            // Collapsible: "Code example" (new format) or "More detail" (older answers)
+            const extra = p.code || p.detail;
+            el.detailWrap.hidden = !extra;
+            if (extra) {
+                el.detailLbl.textContent = p.code ? 'Code example' : 'More detail';
+                el.detailLblShort.textContent = p.code ? 'Code' : 'More';
+                el.detail.innerHTML = o.markdown(p.code ||
+                    String(p.detail).replace(/^(\s*)\**Example\**:\**/gm, '$1**Example:**'));
+                // Older answers with code open automatically; the code example opens when tapped
+                if (!state.detailOpen.has(a.id) && !p.code && p.detail.includes('```')) state.detailOpen.set(a.id, true);
                 const want = !!state.detailOpen.get(a.id);
                 if (el.detailWrap.open !== want) el.detailWrap.open = want;
             }
@@ -642,6 +676,7 @@
             state.scrollTop = 0;
             if (el.q) el.q.classList.remove('pc-q-full');
             state.detailOpen.clear();
+            state.projectOpen.clear();
             setTranscript('');
             render();
         }
