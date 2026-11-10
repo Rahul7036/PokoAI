@@ -21,8 +21,8 @@
         rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
-    <link rel="stylesheet" href="/static/companion.css?v=4">
-    <script src="/static/companion.js?v=4"></script>
+    <link rel="stylesheet" href="/static/companion.css?v=7">
+    <script src="/static/companion.js?v=7"></script>
     <style>
         :root {
             --bg-dark: #020617;
@@ -2187,6 +2187,26 @@
 
         .cp-detail summary::after { content: " \25BE"; }
         .cp-detail[open] summary::after { content: " \25B4"; }
+        .cp-say-rest {
+            display: block;
+            margin-top: 0.45rem;
+            font-size: 0.74em;
+            font-weight: 500;
+            line-height: 1.55;
+            color: #e2e8f0;
+        }
+        .cp-explain {
+            font-size: calc(1rem * var(--cp-scale));
+            line-height: 1.55;
+            color: #cbd5e1;
+            border-left: 3px solid var(--cp-blue);
+            padding: 0.1rem 0 0.1rem 0.85rem;
+            margin: 0 0 1rem;
+        }
+        .cp-explain p { margin: 0 0 0.4rem; }
+        .cp-explain p:last-child { margin-bottom: 0; }
+        .cp-project { border-color: rgba(34, 197, 94, 0.35); }
+        .cp-project summary { color: var(--cp-green); }
 
         .cp-detail .script-text,
         .cp-plain {
@@ -3644,9 +3664,14 @@
                         <div id="cpSay" class="cp-say"></div>
                     </div>
                     <ul id="cpPoints" class="cp-points"></ul>
+                    <div id="cpExplain" class="cp-explain script-text hidden"></div>
                     <details id="cpDetailWrap" class="cp-detail hidden">
-                        <summary>More detail</summary>
+                        <summary id="cpDetailLabel">Code example</summary>
                         <div id="cpDetail" class="script-text"></div>
+                    </details>
+                    <details id="cpProjectWrap" class="cp-detail cp-project hidden">
+                        <summary>Link it to your project</summary>
+                        <div id="cpProject" class="script-text"></div>
                     </details>
                     <div id="cpPlain" class="cp-plain script-text hidden"></div>
                 </article>
@@ -4485,30 +4510,66 @@
             updateCopilotLayout();
         }
 
-        // ----- Answer format: "SAY: ..." / "- point" lines / "DETAIL:" -----
+        // ----- Answer format: "SAY:" / "- point" lines / "EXPLAIN:" / "CODE:" / "PROJECT:" -----
+        // (older answers used "DETAIL:" instead of EXPLAIN + CODE; still understood)
+        const ANSWER_LABELS = [
+            ['say', /^\**\s*say\s*\**\s*:\s*\**/i],
+            ['explain', /^\**\s*explain(?:ation)?\s*\**\s*:\s*\**/i],
+            ['code', /^\**\s*code(?:\s+example)?\s*\**\s*:\s*\**/i],
+            ['detail', /^\**\s*details?\s*\**\s*:\s*\**/i],
+            ['project', /^\**\s*project\s*\**\s*:\s*\**/i],
+        ];
+        const BLOCK_SECTIONS = ['explain', 'code', 'detail', 'project'];
+        // "NONE" (or the start of it while streaming) means the section doesn't apply to this answer
+        const isNoneText = (t) => /^n(o(n(e)?)?)?[.!]?$/i.test(t.replace(/\*/g, '').trim());
+
         function parseAnswer(text) {
             const lines = String(text || '').replace(/\r/g, '').split('\n');
-            let say = '', points = [], detail = [], mode = 'start', structured = false;
+            const s = { say: '', points: [], explain: [], code: [], detail: [], project: [] };
+            let mode = 'start', structured = false, inCode = false;
             for (const raw of lines) {
                 const line = raw.trim();
-                if (mode === 'detail') { detail.push(raw); continue; }
-                if (/^\**\s*say\s*\**\s*:/i.test(line)) {
-                    say = line.replace(/^\**\s*say\s*\**\s*:\s*\**/i, '');
-                    mode = 'say'; structured = true; continue;
+                // A label starts a new section, except inside a ``` code block
+                const label = inCode ? null : ANSWER_LABELS.find(([, re]) => re.test(line));
+                if (label) {
+                    const [name, re] = label;
+                    const rest = line.replace(re, '');
+                    if (name === 'say') s.say = rest;
+                    else if (rest) s[name].push(rest);
+                    mode = name; structured = true; continue;
                 }
-                if (/^\**\s*details?\s*\**\s*:/i.test(line)) {
-                    const rest = line.replace(/^\**\s*details?\s*\**\s*:\s*\**/i, '');
-                    if (rest) detail.push(rest);
-                    mode = 'detail'; structured = true; continue;
+                if (BLOCK_SECTIONS.includes(mode)) {
+                    if (/^```/.test(line)) inCode = !inCode;
+                    s[mode].push(raw);
+                    continue;
                 }
                 const bullet = line.match(/^(?:[-*•]|\d+[.)])\s+(.*)$/);
-                if (bullet && mode !== 'start') { points.push(bullet[1]); mode = 'points'; continue; }
+                if (bullet && mode !== 'start') { s.points.push(bullet[1]); mode = 'points'; continue; }
                 if (!line) continue;
-                if (mode === 'say') say += ' ' + line;                       // SAY wrapped onto next line
-                else if (mode === 'points' && points.length) points[points.length - 1] += ' ' + line;
-                else if (mode === 'start') say += (say ? ' ' : '') + line;   // text before any label
+                if (mode === 'say') s.say += ' ' + line;                     // SAY wrapped onto next line
+                else if (mode === 'points' && s.points.length) s.points[s.points.length - 1] += ' ' + line;
+                else if (mode === 'start') s.say += (s.say ? ' ' : '') + line;   // text before any label
             }
-            return { structured, say: say.trim(), points, detail: detail.join('\n').trim() };
+            const block = (name) => { const t = s[name].join('\n').trim(); return isNoneText(t) ? '' : t; };
+            const say = s.say.trim();
+            const [sayLead, sayRest] = splitSay(say);
+            return { structured, say, sayLead, sayRest, points: s.points, explain: block('explain'),
+                code: block('code'), detail: block('detail'), project: block('project') };
+        }
+
+        // SAY = a direct first sentence + a plain-words explanation. Shown as one block: the first sentence
+        // big and bold, the rest smaller, so it can still be read at a glance.
+        function splitSay(say) {
+            const m = say.match(/^(.+?[.!?])\s+(?=["'(*A-Z0-9`])/);
+            if (!m) return [say, ''];
+            const lead = m[1];
+            if ((lead.match(/\*\*/g) || []).length % 2) return [say, ''];   // don't cut through a **bold** part
+            return [lead, say.slice(m[0].length).trim()];
+        }
+
+        // Make the "Example:" line stand out in the detail section
+        function detailMarkdown(detail) {
+            return String(detail || '').replace(/^(\s*)\**Example\**:\**/gm, '$1**Example:**');
         }
 
         // ----- Render the answer on screen -----
@@ -4532,17 +4593,33 @@
 
             if (usePlain) {
                 $('cpPlain').innerHTML = safeMarkdown(a.text);
+                $('cpExplain').classList.add('hidden');
                 $('cpDetailWrap').classList.add('hidden');
+                $('cpProjectWrap').classList.add('hidden');
             } else {
-                $('cpSay').innerHTML = safeInline(p.say);
+                $('cpSay').innerHTML = safeInline(p.sayLead) +
+                    (p.sayRest ? `<span class="cp-say-rest">${safeInline(p.sayRest)}</span>` : '');
                 $('cpPoints').innerHTML = p.points.map(pt => `<li>${safeInline(pt)}</li>`).join('');
+                // Older answers had a separate explanation block
+                $('cpExplain').classList.toggle('hidden', !p.explain);
+                if (p.explain) $('cpExplain').innerHTML = safeMarkdown(p.explain);
+                // Collapsible: "Code example" (new format) or "More detail" (older answers)
                 const wrap = $('cpDetailWrap');
-                wrap.classList.toggle('hidden', !p.detail);
-                if (p.detail) {
-                    $('cpDetail').innerHTML = safeMarkdown(p.detail);
-                    // Code answers open their detail automatically (unless the user closed it)
-                    if (a.detailOpen === undefined && p.detail.includes('```')) a.detailOpen = true;
+                const extra = p.code || p.detail;
+                wrap.classList.toggle('hidden', !extra);
+                if (extra) {
+                    $('cpDetailLabel').textContent = p.code ? 'Code example' : 'More detail';
+                    $('cpDetail').innerHTML = safeMarkdown(p.code || detailMarkdown(p.detail));
+                    // Older answers with code open automatically; the code example opens when tapped
+                    if (a.detailOpen === undefined && !p.code && p.detail.includes('```')) a.detailOpen = true;
                     wrap.open = !!a.detailOpen;
+                }
+                // "Link it to your project": collapsed until tapped, hidden when nothing on the resume fits
+                const projectWrap = $('cpProjectWrap');
+                projectWrap.classList.toggle('hidden', !p.project);
+                if (p.project) {
+                    $('cpProject').innerHTML = safeMarkdown(p.project);
+                    projectWrap.open = !!a.projectOpen;
                 }
             }
 
@@ -4554,6 +4631,10 @@
         $('cpDetailWrap').addEventListener('toggle', () => {
             const a = answers[viewIndex];
             if (a) a.detailOpen = $('cpDetailWrap').open;
+        });
+        $('cpProjectWrap').addEventListener('toggle', () => {
+            const a = answers[viewIndex];
+            if (a) a.projectOpen = $('cpProjectWrap').open;
         });
 
         function scheduleRender() {
