@@ -1,6 +1,9 @@
 from sqlalchemy import Boolean, Column, Integer, String, DateTime
 from database import Base
 
+# Free Copilot time every new account gets (7 minutes). Existing accounts keep their current limit.
+FREE_TIME_SECONDS = 420
+
 class User(Base):
     __tablename__ = "users"
 
@@ -11,7 +14,7 @@ class User(Base):
     is_active = Column(Boolean, default=False)
     full_name = Column(String, nullable=True)
     profession = Column(String, nullable=True)
-    time_limit_seconds = Column(Integer, default=1200) # 20 minutes free
+    time_limit_seconds = Column(Integer, default=FREE_TIME_SECONDS)
     time_used_seconds = Column(Integer, default=0)
     
     # OTP Verification

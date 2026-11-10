@@ -20,8 +20,10 @@ first-person answers based on the candidate's resume and the job description.
 - **Prep-Deck** — four quick briefing cards (pitch, project to mention, weak spot, top skill).
 - **Resume Matcher** — strict resume-vs-JD score, verdict, missing skills and fixes.
 - **Accounts** — email + password with a 6-digit email OTP, or Sign in with Google.
-- **Credits** — each account gets 20 minutes of Copilot time (`time_limit_seconds = 1200`),
-  metered by the server while a Copilot session is open.
+- **Credits** — each new account gets 7 free minutes of Copilot time
+  (`models.FREE_TIME_SECONDS = 420`), metered by the server while a Copilot session is open.
+- **Plans (INR)** — Starter ₹299 / 45 min, Pro ₹699 / 120 min. Payment is manual for now: "Buy"
+  opens an email to the team, the user pays by UPI, and an admin adds the minutes (see Administration).
 
 ## Tech stack
 
@@ -131,10 +133,11 @@ Open http://localhost:8000. Tables are created automatically on startup.
 ## Administration
 
 New email accounts become active after OTP verification; Google accounts are active
-immediately. To give a user more Copilot time:
+immediately. After a user pays, add their minutes:
 
 ```sql
-UPDATE users SET time_limit_seconds = time_limit_seconds + 1800 WHERE email = 'user@example.com';
+-- Starter (₹299): 45 min = 2700 s     Pro (₹699): 120 min = 7200 s
+UPDATE users SET time_limit_seconds = time_limit_seconds + 2700 WHERE email = 'user@example.com';
 ```
 
 ## Troubleshooting
