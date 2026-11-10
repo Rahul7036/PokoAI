@@ -3095,8 +3095,8 @@
                 <button class="btn-primary" style="width: 100%;" onclick="buyPlan('starter')">₹299 for 45 minutes</button>
                 <button class="btn-primary" style="width: 100%;" onclick="buyPlan('pro')">₹699 for 120 minutes (best value)</button>
             </div>
-            <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 2rem;">Opens an email to
-                pokoai0206@gmail.com. We reply with UPI details and add the minutes after payment.</p>
+            <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 2rem;">Opens a ready email to
+                pokoai0206@gmail.com: just press Send. We reply with UPI details and add the minutes after payment.</p>
 
             <button class="btn-outline" style="width: 100%;"
                 onclick="document.getElementById('limit-overlay').classList.add('hidden')">Close</button>
@@ -3385,7 +3385,7 @@
           <button type="button" class="lv-btn lv-btn-ghost" onclick="buyPlan('pro')">Buy 120 minutes</button>
         </div>
       </div>
-      <p class="lv-plan-note">Prices in INR. To buy, email us from your account email; we reply with UPI payment details and add the minutes to your account after payment.</p>
+      <p class="lv-plan-note">Prices in INR. Create your free account, then tap Buy: a ready email to us opens, just press Send. We reply with UPI payment details and add the minutes after payment.</p>
     </div>
   </section>
 
@@ -3399,7 +3399,7 @@
         <details><summary>How fast are the answers?</summary><p>The first words usually appear about a second after the interviewer stops talking. The rest fills in while you say the opening line.</p></details>
         <details><summary>Will the answers sound like me?</summary><p>They use only facts from your resume and are short cues, not a script. You say them in your own words.</p></details>
         <details><summary>What happens to my resume?</summary><p>It's read to prepare answers and kept in memory while you use PrapAI. It isn't saved to our database, and it's cleared when you upload a new one.</p></details>
-        <details><summary>How do I buy more minutes?</summary><p>Tap "Buy" on a plan. It opens an email to us; send it from the email you sign in with. We reply with UPI payment details and add the minutes to your account once the payment arrives. Minutes are only used while the copilot is listening, and they don't expire.</p></details>
+        <details><summary>How do I buy more minutes?</summary><p>Sign in, then tap "Buy" on a plan. A ready email to us opens in Gmail (or your mail app) with the plan and your account email filled in: just press Send. We reply with UPI payment details and add the minutes to your account once the payment arrives. Minutes are only used while the copilot is listening, and they don't expire.</p></details>
         <details><summary>Is using it allowed in my interview?</summary><p>That depends on the company. Some don't allow outside help during interviews, so check the rules for yours. PrapAI also works well for practice and mock interviews.</p></details>
       </div>
     </div>
@@ -3851,7 +3851,7 @@
 
         function checkAuth() {
             const token = localStorage.getItem('token');
-            if (token) { showView('dashboard-view'); updateCredits(); }
+            if (token) { showView('dashboard-view'); updateCredits(); offerPlansAfterLogin(); }
             else showView('landing-view');
         }
 
@@ -4778,16 +4778,57 @@
         };
         let accountEmail = '';   // filled in by updateCredits() once signed in
 
+        const SALES_EMAIL = 'pokoai0206@gmail.com';
+        const BUY_AFTER_LOGIN_KEY = 'prapBuyAfterLogin';   // sessionStorage: show plans once signed in
+
         function buyPlan(planKey) {
             const plan = PLANS[planKey];
             if (!plan) return;
-            const subject = encodeURIComponent(`Buy PrapAI ${plan.name}: ${plan.minutes} minutes for ${plan.price}`);
-            const body = encodeURIComponent(
+
+            // Minutes belong to an account: sign up / sign in first, then the plans pop up on the dashboard
+            if (!localStorage.getItem('token')) {
+                try { sessionStorage.setItem(BUY_AFTER_LOGIN_KEY, planKey); } catch (e) { }
+                openSignup();
+                document.getElementById('loginError').innerText =
+                    `Create your free account (or sign in) first. Then you can buy the ${plan.name} plan.`;
+                return;
+            }
+            openPurchaseEmail(plan);
+        }
+
+        // Open a ready-to-send email draft: Gmail in a new tab on computers, the mail app on phones
+        function openPurchaseEmail(plan) {
+            const subject = `Buy PrapAI ${plan.name}: ${plan.minutes} minutes for ${plan.price}`;
+            const body =
                 `Hi PrapAI team,\n\nI'd like to buy the ${plan.name} plan (${plan.minutes} minutes for ${plan.price}).\n\n` +
                 `My PrapAI account email: ${accountEmail || '(please write the email you sign in with)'}\n\n` +
-                `Please send me the UPI payment details.\n\nThanks`
-            );
-            window.location.href = `mailto:pokoai0206@gmail.com?subject=${subject}&body=${body}`;
+                `Please send me the UPI payment details.\n\nThanks`;
+            const mailto = `mailto:${SALES_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            const isPhone = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+            document.getElementById('limit-overlay').classList.add('hidden');
+            if (isPhone) {
+                window.location.href = mailto;   // opens the Gmail app (or the phone's mail app) with the draft
+            } else {
+                const gmail = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(SALES_EMAIL)}` +
+                    `&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                // No 'noopener' feature here: with it, window.open always returns null and we couldn't
+                // tell a blocked pop-up from a successful one. Cut the link to this page by hand instead.
+                const tab = window.open(gmail, '_blank');
+                if (tab) tab.opener = null;
+                else window.location.href = mailto;   // pop-up blocked: fall back to the default mail app
+            }
+            notify(`Your email is ready: just press Send. No email opened? Write to ${SALES_EMAIL} with the plan you want.`);
+        }
+
+        // Someone tapped Buy while signed out: once they're in, show the plans so they can pick one
+        function offerPlansAfterLogin() {
+            let pending = null;
+            try { pending = sessionStorage.getItem(BUY_AFTER_LOGIN_KEY); sessionStorage.removeItem(BUY_AFTER_LOGIN_KEY); } catch (e) { }
+            if (pending && PLANS[pending]) {
+                showLimitReached('Pick a plan. A ready email to us opens: just press Send and we reply with UPI payment details.',
+                    'Buy Copilot minutes');
+            }
         }
 
         function joinWaitlist(featureName) {
