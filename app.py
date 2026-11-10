@@ -7,6 +7,7 @@ import threading
 import re
 import smtplib
 import secrets
+import requests
 import bcrypt
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
@@ -188,23 +189,63 @@ class OTPVerify(BaseModel):
     email: str
     otp: str
 
-SMTP_TIMEOUT_SECONDS = 15
+EMAIL_TIMEOUT_SECONDS = 15
+EMAIL_FROM_NAME = "PrapAI"
+BREVO_SEND_URL = "https://api.brevo.com/v3/smtp/email"
+
+
+def _send_via_brevo(api_key, sender, to_email, subject, text, html):
+    """Brevo's HTTPS API. Used in production: Render's free plan blocks SMTP ports, but not HTTPS."""
+    resp = requests.post(
+        BREVO_SEND_URL,
+        headers={"api-key": api_key, "accept": "application/json", "content-type": "application/json"},
+        json={
+            "sender": {"name": EMAIL_FROM_NAME, "email": sender},
+            "to": [{"email": to_email}],
+            "subject": subject,
+            "textContent": text,
+            "htmlContent": html,
+        },
+        timeout=EMAIL_TIMEOUT_SECONDS,
+    )
+    if resp.status_code >= 300:
+        raise RuntimeError(f"Brevo HTTP {resp.status_code}: {resp.text[:300]}")
+
+
+def _send_via_gmail_smtp(sender, password, to_email, subject, text, html):
+    """Gmail SMTP with an App Password. Fine locally; blocked on Render's free plan."""
+    msg = MIMEMultipart("alternative")
+    msg["From"] = f"{EMAIL_FROM_NAME} <{sender}>"
+    msg["To"] = to_email
+    msg["Subject"] = subject
+    # Plain text first, HTML last (mail apps show the last part they support)
+    msg.attach(MIMEText(text, "plain"))
+    msg.attach(MIMEText(html, "html"))
+    # Timeout so a blocked/unreachable mail server can't hang the signup request
+    with smtplib.SMTP("smtp.gmail.com", 587, timeout=EMAIL_TIMEOUT_SECONDS) as server:
+        server.starttls()
+        server.login(sender, password)
+        server.send_message(msg)
 
 
 def send_otp_email(to_email: str, otp: str) -> bool:
-    """Send the 6-digit code. Returns False (and logs why) if the email could not be sent."""
-    sender_email = os.getenv("EMAIL_USER")
-    sender_password = os.getenv("EMAIL_PASS")
+    """Send the 6-digit code. Returns False (and logs why) if the email could not be sent.
 
-    if not sender_email or not sender_password:
-        logger.error("OTP email not sent: EMAIL_USER or EMAIL_PASS is not set on this server")
+    BREVO_API_KEY set  -> send through Brevo (from EMAIL_FROM, a sender verified in Brevo).
+    otherwise          -> Gmail SMTP with EMAIL_USER / EMAIL_PASS.
+    """
+    brevo_key = os.getenv("BREVO_API_KEY", "").strip()
+    sender = (os.getenv("EMAIL_FROM") or os.getenv("EMAIL_USER") or "").strip()
+    password = os.getenv("EMAIL_PASS", "")
+
+    if not sender:
+        logger.error("OTP email not sent: set EMAIL_FROM (or EMAIL_USER) to the address codes are sent from")
+        return False
+    if not brevo_key and not password:
+        logger.error("OTP email not sent: set BREVO_API_KEY (production) or EMAIL_PASS (Gmail SMTP)")
         return False
 
-    msg = MIMEMultipart("alternative")
-    msg["From"] = f"PrapAI <{sender_email}>"
-    msg["To"] = to_email
-    msg["Subject"] = f"{otp} is your PrapAI verification code"
-
+    subject = f"{otp} is your PrapAI verification code"
     text = (f"Your PrapAI verification code is {otp}\n\n"
             f"It expires in {OTP_VALID_MINUTES} minutes. If you didn't sign up for PrapAI, ignore this email.")
     html = f"""
@@ -213,20 +254,17 @@ def send_otp_email(to_email: str, otp: str) -> bool:
       <h1 style="letter-spacing:4px">{otp}</h1>
       <p>It expires in {OTP_VALID_MINUTES} minutes. If you didn't sign up for PrapAI, ignore this email.</p>
     """
-    # Plain text first, HTML last (mail apps show the last part they support)
-    msg.attach(MIMEText(text, "plain"))
-    msg.attach(MIMEText(html, "html"))
 
+    provider = "Brevo" if brevo_key else "Gmail SMTP"
     try:
-        # Timeout so a blocked/unreachable mail server can't hang the signup request
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=SMTP_TIMEOUT_SECONDS) as server:
-            server.starttls()
-            server.login(sender_email, sender_password)
-            server.send_message(msg)
-        logger.info(f"OTP email sent to {to_email}")
+        if brevo_key:
+            _send_via_brevo(brevo_key, sender, to_email, subject, text, html)
+        else:
+            _send_via_gmail_smtp(sender, password, to_email, subject, text, html)
+        logger.info(f"OTP email sent to {to_email} via {provider}")
         return True
     except Exception as e:
-        logger.error(f"OTP email to {to_email} failed: {type(e).__name__}: {e}")
+        logger.error(f"OTP email to {to_email} via {provider} failed: {type(e).__name__}: {e}")
         return False
 
 

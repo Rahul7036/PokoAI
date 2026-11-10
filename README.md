@@ -106,7 +106,11 @@ DB_STRING=postgresql://user:password@host:5432/dbname
 # JWT signing key: a long random string (keep it the same across deploys)
 SECRET_KEY=change-me
 
-# Gmail account used to send OTP emails (use a Gmail App Password)
+# Sign-up code emails. Production (Render): Brevo's HTTPS API, because Render's free plan
+# blocks SMTP ports. EMAIL_FROM must be a sender verified in Brevo.
+BREVO_API_KEY=xkeysib-...
+EMAIL_FROM=you@gmail.com
+# Local fallback when BREVO_API_KEY is empty: Gmail SMTP with a Gmail App Password
 EMAIL_USER=you@gmail.com
 EMAIL_PASS=your-app-password
 ```
@@ -149,6 +153,8 @@ UPDATE users SET time_limit_seconds = time_limit_seconds + 2700 WHERE email = 'u
 | `Could not deserialize key data` | `GCP_PRIVATE_KEY` formatting: one line, double quotes, keep `\n` |
 | Google button: `invalid_client` / origin error | Add the site's origin to the OAuth client; wait ~5 minutes |
 | Google login: "Access blocked" | OAuth app is still in Testing — publish it or add the user as a test user |
+| Sign-up code never arrives; log says `Network is unreachable` | The host blocks SMTP (Render free plan). Set `BREVO_API_KEY` + `EMAIL_FROM` |
+| Log says `Brevo HTTP 400/401/403` | Key wrong, sender not verified in Brevo, or Brevo blocked Render's IP (Brevo → Security → Authorised IPs) |
 | Copilot doesn't hear the interviewer | Use **Listen to: Mic + meeting audio** and enable "Also share tab audio" in the share dialog |
 
 ## Contact
