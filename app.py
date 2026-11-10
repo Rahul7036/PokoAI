@@ -6,8 +6,7 @@ import logging
 import threading
 import re
 import smtplib
-import random
-import string
+import secrets
 import bcrypt
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
@@ -135,7 +134,7 @@ def ensure_schema_updates():
     with engine.connect() as conn:
         # Check for time_limit_seconds
         try:
-            conn.execute(text("ALTER TABLE users ADD COLUMN time_limit_seconds INTEGER DEFAULT 1200"))
+            conn.execute(text(f"ALTER TABLE users ADD COLUMN time_limit_seconds INTEGER DEFAULT {models.FREE_TIME_SECONDS}"))
             logger.info("Added time_limit_seconds column")
         except Exception:
             pass
@@ -189,143 +188,195 @@ class OTPVerify(BaseModel):
     email: str
     otp: str
 
-def send_otp_email(to_email: str, otp: str):
+SMTP_TIMEOUT_SECONDS = 15
+
+
+def send_otp_email(to_email: str, otp: str) -> bool:
+    """Send the 6-digit code. Returns False (and logs why) if the email could not be sent."""
     sender_email = os.getenv("EMAIL_USER")
     sender_password = os.getenv("EMAIL_PASS")
-    
+
     if not sender_email or not sender_password:
-        logger.error("EMAIL_USER or EMAIL_PASS not set")
+        logger.error("OTP email not sent: EMAIL_USER or EMAIL_PASS is not set on this server")
         return False
 
-    msg = MIMEMultipart()
+    msg = MIMEMultipart("alternative")
     msg["From"] = f"PrapAI <{sender_email}>"
-    msg['To'] = to_email
-    msg['Subject'] = "Your OTP Code"
+    msg["To"] = to_email
+    msg["Subject"] = f"{otp} is your PrapAI verification code"
 
+    text = (f"Your PrapAI verification code is {otp}\n\n"
+            f"It expires in {OTP_VALID_MINUTES} minutes. If you didn't sign up for PrapAI, ignore this email.")
     html = f"""
-      <h2>PrapAI Email Verification</h2>
-      <p>Your OTP is:</p>
-      <h1>{otp}</h1>
-      <p>This code expires in 10 minutes.</p>
+      <h2>PrapAI email verification</h2>
+      <p>Your verification code is:</p>
+      <h1 style="letter-spacing:4px">{otp}</h1>
+      <p>It expires in {OTP_VALID_MINUTES} minutes. If you didn't sign up for PrapAI, ignore this email.</p>
     """
-    msg.attach(MIMEText(html, 'html'))
+    # Plain text first, HTML last (mail apps show the last part they support)
+    msg.attach(MIMEText(text, "plain"))
+    msg.attach(MIMEText(html, "html"))
 
     try:
-        server = smtplib.SMTP('smtp.gmail.com', 587)
-        server.starttls()
-        server.login(sender_email, sender_password)
-        server.send_message(msg)
-        server.quit()
+        # Timeout so a blocked/unreachable mail server can't hang the signup request
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=SMTP_TIMEOUT_SECONDS) as server:
+            server.starttls()
+            server.login(sender_email, sender_password)
+            server.send_message(msg)
+        logger.info(f"OTP email sent to {to_email}")
         return True
     except Exception as e:
-        logger.error(f"Failed to send email: {e}")
+        logger.error(f"OTP email to {to_email} failed: {type(e).__name__}: {e}")
         return False
 
-# --- Auth Routes ---
-BETA_INVITE_CODE = "PRAPAI2026"
 
+# --- Email OTP helpers ---
+OTP_VALID_MINUTES = 10
+OTP_RESEND_COOLDOWN_SECONDS = 30
+OTP_MAX_ATTEMPTS = 5          # wrong guesses allowed per code; then a new code is needed
+OTP_ATTEMPTS = {}             # email -> wrong guesses for the current code (in memory, single process)
+EMAIL_SEND_FAILED = ("We couldn't send the verification email right now. "
+                     "Please try again in a minute, or use Sign in with Google.")
+
+
+def normalize_email(email: str) -> str:
+    return (email or "").strip().lower()
+
+
+def find_user_by_email(db: Session, email: str):
+    """Case-insensitive lookup, so 'User@Gmail.com' and 'user@gmail.com' are the same account."""
+    return db.query(models.User).filter(func.lower(models.User.email) == normalize_email(email)).first()
+
+
+def issue_otp(user: models.User) -> str:
+    """Give the user a fresh code (stored hashed). Returns the plain code to email."""
+    otp = f"{secrets.randbelow(10**6):06d}"
+    user.otp_code = bcrypt.hashpw(otp.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    user.otp_expires_at = datetime.utcnow() + timedelta(minutes=OTP_VALID_MINUTES)
+    OTP_ATTEMPTS.pop(normalize_email(user.email), None)
+    return otp
+
+
+def otp_seconds_since_sent(user: models.User):
+    if not user.otp_expires_at:
+        return None
+    sent_at = user.otp_expires_at - timedelta(minutes=OTP_VALID_MINUTES)
+    return (datetime.utcnow() - sent_at).total_seconds()
+
+
+# --- Auth Routes ---
 @app.post("/auth/register")
 def register(user: UserRegister, db: Session = Depends(get_db)):
-    db_user = db.query(models.User).filter(models.User.email == user.email).first()
+    email = normalize_email(user.email)
+    if "@" not in email or "." not in email.split("@")[-1]:
+        raise HTTPException(status_code=400, detail="Please enter a valid email address.")
+    if len(user.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters.")
+
+    db_user = find_user_by_email(db, email)
+    if db_user and (db_user.is_active or db_user.google_id):
+        if db_user.google_id and not db_user.hashed_password:
+            raise HTTPException(status_code=400, detail="This email uses Sign in with Google. Please use the Google button.")
+        raise HTTPException(status_code=400, detail="Email already registered. Please sign in.")
+
     if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    
-    hashed_password = get_password_hash(user.password)
-    
-    # Generate OTP
-    otp = ''.join(random.choices(string.digits, k=6))
-    otp_hash = bcrypt.hashpw(otp.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-    otp_expires = datetime.utcnow() + timedelta(minutes=10)
+        # Signed up before but never verified (e.g. the code never arrived): let them start over
+        since = otp_seconds_since_sent(db_user)
+        if since is not None and since < OTP_RESEND_COOLDOWN_SECONDS:
+            raise HTTPException(status_code=429, detail="A code was just sent. Please wait a few seconds and try again.")
+        db_user.hashed_password = get_password_hash(user.password)
+        db_user.full_name = user.fullName
+        db_user.profession = user.profession
+    else:
+        db_user = models.User(
+            email=email,
+            hashed_password=get_password_hash(user.password),
+            full_name=user.fullName,
+            profession=user.profession,
+            is_active=False,  # becomes active after the email code is verified
+        )
+        db.add(db_user)
 
-    new_user = models.User(
-        email=user.email, 
-        hashed_password=hashed_password,
-        full_name=user.fullName,
-        profession=user.profession,
-        is_active=False, # Accout pending approval
-        otp_code=otp_hash,
-        otp_expires_at=otp_expires
-    )
-    db.add(new_user)
+    otp = issue_otp(db_user)
     db.commit()
-    db.refresh(new_user)
-    
-    # Send OTP Email
-    email_sent = send_otp_email(user.email, otp)
-    if not email_sent:
-        logger.error("Failed to send OTP email")
-        # Ensure we don't rollback user creation, but maybe warn?
-        # Ideally, we might want to delete user if email fails, but for now let's keep it.
 
-    # We still return a token so they can see the "pending" message if we want,
-    # but the get_current_user dependency or the login route will block them.
-    access_token = create_access_token(data={"sub": new_user.email})
-    return {"access_token": access_token, "token_type": "bearer", "message": "OTP sent to email"}
+    if not send_otp_email(db_user.email, otp):
+        # Account stays unverified; signing up again (or Resend) will retry the email
+        raise HTTPException(status_code=503, detail=EMAIL_SEND_FAILED)
+
+    return {"message": "Verification code sent", "email": db_user.email}
 
 @app.post("/auth/verify-otp")
 def verify_otp(data: OTPVerify, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.email == data.email).first()
+    email = normalize_email(data.email)
+    code = (data.otp or "").strip()
+    user = find_user_by_email(db, email)
     if not user:
-        raise HTTPException(status_code=400, detail="User not found")
-        
+        raise HTTPException(status_code=400, detail="No account found for this email. Please sign up first.")
+
     if user.is_active:
-        return {"message": "Account already active"}
-        
-    if not user.otp_code:
-        raise HTTPException(status_code=400, detail="Invalid OTP")
-    
-    # Verify OTP Hash
+        access_token = create_access_token(data={"sub": user.email})
+        return {"message": "Account already active", "access_token": access_token, "token_type": "bearer"}
+
+    if not user.otp_code or not user.otp_expires_at:
+        raise HTTPException(status_code=400, detail="No active code. Tap Resend code to get a new one.")
+    if user.otp_expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="This code has expired. Tap Resend code to get a new one.")
+    if OTP_ATTEMPTS.get(email, 0) >= OTP_MAX_ATTEMPTS:
+        raise HTTPException(status_code=429, detail="Too many wrong attempts. Tap Resend code to get a new one.")
+
     try:
-        if not bcrypt.checkpw(data.otp.encode('utf-8'), user.otp_code.encode('utf-8')):
-             raise HTTPException(status_code=400, detail="Invalid OTP")
-    except Exception:
-        # Fallback for old plain-text OTPs if any exist (optional, but safer during transition)
-        if user.otp_code != data.otp:
-             raise HTTPException(status_code=400, detail="Invalid OTP")
-        
-    if not user.otp_expires_at or user.otp_expires_at < datetime.utcnow():
-        raise HTTPException(status_code=400, detail="OTP Expired")
-        
+        valid = len(code) == 6 and code.isdigit() and bcrypt.checkpw(code.encode("utf-8"), user.otp_code.encode("utf-8"))
+    except ValueError:
+        valid = False  # stored value isn't a bcrypt hash (very old plain-text code)
+    if not valid:
+        OTP_ATTEMPTS[email] = OTP_ATTEMPTS.get(email, 0) + 1
+        left = OTP_MAX_ATTEMPTS - OTP_ATTEMPTS[email]
+        raise HTTPException(status_code=400, detail=f"Wrong code. {left} attempt{'s' if left != 1 else ''} left."
+                            if left > 0 else "Too many wrong attempts. Tap Resend code to get a new one.")
+
     user.is_active = True
     user.otp_code = None
     user.otp_expires_at = None
     db.commit()
-    
+    OTP_ATTEMPTS.pop(email, None)
+
     access_token = create_access_token(data={"sub": user.email})
     return {"message": "Account verified successfully", "access_token": access_token, "token_type": "bearer"}
 
 @app.post("/auth/resend-otp")
 def resend_otp(data: OTPVerify, db: Session = Depends(get_db)):
-    # We only need email from data
-    user = db.query(models.User).filter(models.User.email == data.email).first()
+    # Only the email is used
+    user = find_user_by_email(db, data.email)
     if not user:
-        raise HTTPException(status_code=400, detail="User not found")
-        
+        raise HTTPException(status_code=400, detail="No account found for this email. Please sign up first.")
+
     if user.is_active:
-        return {"message": "Account already active"}
-        
-    otp = ''.join(random.choices(string.digits, k=6))
-    otp_hash = bcrypt.hashpw(otp.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-    otp_expires = datetime.utcnow() + timedelta(minutes=10)
-    
-    user.otp_code = otp_hash
-    user.otp_expires_at = otp_expires
+        return {"message": "Account already active. Please sign in."}
+
+    since = otp_seconds_since_sent(user)
+    if since is not None and since < OTP_RESEND_COOLDOWN_SECONDS:
+        wait = int(OTP_RESEND_COOLDOWN_SECONDS - since) + 1
+        raise HTTPException(status_code=429, detail=f"Please wait {wait} seconds before asking for another code.")
+
+    otp = issue_otp(user)
     db.commit()
-    
-    send_otp_email(user.email, otp)
-    return {"message": "OTP resent successfully"}
+
+    if not send_otp_email(user.email, otp):
+        raise HTTPException(status_code=503, detail=EMAIL_SEND_FAILED)
+    return {"message": "A new code has been sent to your email."}
 
 @app.post("/auth/login")
 def login(user: UserLogin, db: Session = Depends(get_db)):
-    db_user = db.query(models.User).filter(models.User.email == user.email).first()
-    if not db_user or not db_user.hashed_password:
-        raise HTTPException(status_code=400, detail="Invalid credentials")
-    
-    if not verify_password(user.password, db_user.hashed_password):
-        raise HTTPException(status_code=400, detail="Invalid credentials")
-        
+    db_user = find_user_by_email(db, user.email)
+    if db_user and not db_user.hashed_password and db_user.google_id:
+        raise HTTPException(status_code=400, detail="This email uses Sign in with Google. Please use the Google button.")
+    if not db_user or not verify_password(user.password, db_user.hashed_password):
+        raise HTTPException(status_code=400, detail="Incorrect email or password.")
+
     if not db_user.is_active:
-        raise HTTPException(status_code=403, detail="Account not verified. Please check your email for the OTP code.")
+        # The frontend opens the code screen on 403 so the user can verify (or resend) right away
+        raise HTTPException(status_code=403, detail="Your email isn't verified yet. Enter the code we emailed you.")
 
     access_token = create_access_token(data={"sub": db_user.email})
     return {"access_token": access_token, "token_type": "bearer"}
@@ -345,17 +396,17 @@ def google_auth(login: GoogleLogin, db: Session = Depends(get_db)):
     google_id = id_info['sub']
     
     # Check if user exists
-    db_user = db.query(models.User).filter(models.User.email == email).first()
+    db_user = find_user_by_email(db, email)
     
     if not db_user:
-        # Create new user via Google, automatically activate and set 20 min limit (1200s)
+        # Create new user via Google, automatically activate with the free time allowance
         full_name = id_info.get('name')
         db_user = models.User(
-            email=email, 
-            google_id=google_id, 
+            email=email,
+            google_id=google_id,
             full_name=full_name,
-            is_active=True, 
-            time_limit_seconds=1200
+            is_active=True,
+            time_limit_seconds=models.FREE_TIME_SECONDS
         )
         db.add(db_user)
         db.commit()
