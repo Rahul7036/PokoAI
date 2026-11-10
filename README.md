@@ -17,6 +17,12 @@ first-person answers based on the candidate's resume and the job description.
   - *Listen to: Mic only* — microphone only.
   - *Listen to: Mic + meeting audio* — also captures the Zoom/Meet/Teams tab (or screen) audio,
     so the copilot hears the interviewer even when the candidate wears headphones.
+- **Mock Interview** — an AI interviewer (`/ws/mock`): Gemini with Google Search grounding finds
+  questions candidates report at the company (cached 3 days per company + role), mixes them with resume
+  and JD questions, reads each question aloud (browser voice), listens to the spoken answer
+  (Speech-to-Text), asks up to one follow-up per question, and ends with a score report (per-answer
+  score, what was missing, a stronger answer, words/min, filler words). Uses the same Copilot minutes,
+  billed only while the interview runs; preparing and scoring are free. Reports are not saved.
 - **Prep-Deck** — four quick briefing cards (pitch, project to mention, weak spot, top skill).
 - **Resume Matcher** — strict resume-vs-JD score, verdict, missing skills and fixes.
 - **Accounts** — email + password with a 6-digit email OTP, or Sign in with Google.

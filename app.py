@@ -83,6 +83,32 @@ async def generate_text(prompt: str, json_mode: bool = False) -> str:
     return response.text or ""
 
 
+def _is_rate_limited(e: Exception) -> bool:
+    return "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e)
+
+
+async def generate_text_reliably(prompt: str, json_mode: bool = False) -> str:
+    """Like generate_text, but rides out Gemini's short "429 Resource exhausted" limits: retry with a
+    pause, then try the copilot model (it has its own quota). Used where losing the result is costly."""
+    for attempt, pause in enumerate((2, 5)):
+        try:
+            return await generate_text(prompt, json_mode)
+        except Exception as e:
+            if not _is_rate_limited(e):
+                raise
+            logger.warning(f"Gemini rate-limited ({model_name}), retry {attempt + 1} in {pause}s")
+            await asyncio.sleep(pause)
+    try:
+        return await generate_text(prompt, json_mode)
+    except Exception as e:
+        if not _is_rate_limited(e) or COPILOT_MODEL == model_name:
+            raise
+    logger.warning(f"Gemini still rate-limited; falling back to '{COPILOT_MODEL}'")
+    config = genai_types.GenerateContentConfig(response_mime_type="application/json") if json_mode else None
+    response = await ai_client.aio.models.generate_content(model=COPILOT_MODEL, contents=prompt, config=config)
+    return response.text or ""
+
+
 async def stream_model_text(prompt: str, model: str, thinking_level: str = None):
     """Async generator yielding text chunks from Gemini as they are produced."""
     config = None
@@ -1185,3 +1211,554 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
             logger.error(f"Final billing failed for {user_email}: {e}")
         # Join off the event loop so other users aren't blocked
         await asyncio.to_thread(t.join, 5)
+
+
+# =====================================================================
+# MOCK INTERVIEW
+# An AI interviewer asks questions (researched for the company on the web, plus resume and JD
+# questions), listens to spoken answers, asks follow-ups, and scores the interview at the end.
+# Uses the same Copilot minutes, billed only while the interview runs (preparing and scoring are free).
+# =====================================================================
+MOCK_QUESTION_COUNTS = {"short": 5, "standard": 8}
+MOCK_MAX_FOLLOWUPS_PER_QUESTION = 1
+MOCK_ANSWER_PAUSE_SECONDS = 6          # silence that ends an answer (longer than the copilot: people pause to think)
+MOCK_MIN_WORDS_FOR_AUTO_END = 6        # shorter answers wait for the "Done" button
+MOCK_MAX_ANSWER_SECONDS = 240          # an answer is closed after 4 minutes
+MOCK_MIN_WORDS_FOR_FOLLOWUP = 8
+MOCK_RESEARCH_CACHE_SECONDS = 3 * 24 * 3600
+MOCK_RESEARCH_CACHE = {}               # (company, role) lowercased -> (saved_at, research); in memory
+MOCK_FILLERS = ("um", "umm", "uh", "uhh", "hmm", "basically", "actually", "you know", "i mean", "kind of", "sort of")
+WS_CLOSE_MOCK_DONE = 1000
+
+
+def run_speech_stream(audio_queue, stop_event, on_result):
+    """Blocking: stream PCM chunks from audio_queue to Speech-to-Text until stop_event is set.
+
+    Calls on_result(transcript, is_final) from this thread and reconnects when Google ends the stream.
+    """
+    def requests_iter():
+        while not stop_event.is_set():
+            try:
+                data = audio_queue.get(timeout=0.1)
+            except queue.Empty:
+                continue
+            if data is None:
+                return
+            yield speech.StreamingRecognizeRequest(audio_content=data)
+
+    while not stop_event.is_set():
+        try:
+            client = speech.SpeechClient(credentials=credentials)
+            config = speech.StreamingRecognitionConfig(
+                config=speech.RecognitionConfig(
+                    encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+                    sample_rate_hertz=RATE, language_code=LANGUAGE_CODE, enable_automatic_punctuation=True,
+                ),
+                interim_results=True,
+            )
+            for response in client.streaming_recognize(config, requests_iter()):
+                if stop_event.is_set():
+                    break
+                if response.results and response.results[0].alternatives:
+                    result = response.results[0]
+                    on_result(result.alternatives[0].transcript, result.is_final)
+        except Exception as e:
+            logger.error(f"Mock speech stream error (will retry): {e}")
+            stop_event.wait(1)
+
+
+def _answer_stats(text: str, seconds: float) -> dict:
+    words = _words(text)
+    padded = " " + " ".join(words) + " "
+    fillers = {f: padded.count(f" {f} ") for f in MOCK_FILLERS}
+    fillers = {f: n for f, n in fillers.items() if n}
+    wpm = round(len(words) / (seconds / 60)) if seconds >= 5 and words else None
+    return {"words": len(words), "seconds": round(seconds), "wpm": wpm, "fillers": fillers}
+
+
+async def research_company_questions(company: str, role: str) -> dict:
+    """Web search (Gemini grounded on Google Search) for questions candidates report at this company."""
+    empty = {"text": "", "sources": [], "search_html": ""}
+    if not company:
+        return empty
+    key = (company.lower(), role.lower())
+    cached = MOCK_RESEARCH_CACHE.get(key)
+    if cached and time.time() - cached[0] < MOCK_RESEARCH_CACHE_SECONDS:
+        return cached[1]
+    prompt = (
+        f"Search for interview questions that candidates report being asked at {company} "
+        f"for {role or 'software'} roles, preferring India and the last 2-3 years. List up to 12 distinct "
+        f"questions, one per line, each starting with its round in brackets, for example [Technical], "
+        f"[Behavioral], [HR], [System design], [Coding]. Only questions candidates reported; no commentary."
+    )
+    try:
+        resp = await ai_client.aio.models.generate_content(
+            model=model_name, contents=prompt,
+            config=genai_types.GenerateContentConfig(tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())]),
+        )
+    except Exception as e:
+        logger.error(f"Mock research failed for {company}/{role}: {e}")
+        return empty
+    gm = resp.candidates[0].grounding_metadata if resp.candidates else None
+    sources, seen = [], set()
+    for chunk in (getattr(gm, "grounding_chunks", None) or []):
+        web = getattr(chunk, "web", None)
+        if web and web.uri and (web.title or "") not in seen:
+            seen.add(web.title or "")
+            sources.append({"title": web.title or "source", "uri": web.uri})
+    sep = getattr(gm, "search_entry_point", None)
+    research = {"text": (resp.text or "")[:4000], "sources": sources[:6],
+                "search_html": (sep.rendered_content if sep and sep.rendered_content else "")}
+    if research["text"]:
+        MOCK_RESEARCH_CACHE[key] = (time.time(), research)
+    return research
+
+
+async def plan_mock_questions(ctx: dict, company: str, role: str, research_text: str, count: int) -> list:
+    prompt = f"""
+        You are preparing a realistic SPOKEN mock interview for a job candidate.
+        COMPANY: {company or 'not given'}
+        ROLE: {role or 'see the job description'}
+
+        RESUME:
+        {ctx['resume'][:COPILOT_RESUME_CHARS]}
+
+        JOB DESCRIPTION:
+        {ctx['jd'][:COPILOT_JD_CHARS] or 'not given'}
+
+        QUESTIONS CANDIDATES REPORT BEING ASKED AT THIS COMPANY (web search, may be incomplete or empty):
+        {research_text or 'none found'}
+
+        Write exactly {count} questions, in the order a real interviewer would ask them:
+        - Question 1: a short warm-up (e.g. "Tell me about yourself") tailored to the role.
+        - About 40% adapted from the reported company questions, if there are any (set "from_research": true).
+        - About 30% about specific projects, numbers or claims on the resume.
+        - The rest on the job description's key skills, including one behavioral question.
+        - The last question is an HR question (why this company, career goals, notice period, etc.).
+        - It is spoken: never ask the candidate to write code. For coding or system design, ask them to
+          explain their approach out loud ("How would you approach ...? Walk me through it.").
+        - Each question at most 30 words, natural spoken English, no numbering.
+
+        OUTPUT JSON ONLY:
+        {{"questions": [{{"question": "...", "kind": "warmup|company|resume|technical|behavioral|hr", "from_research": false}}]}}
+        """
+    data = _parse_model_json(await generate_text_reliably(prompt, json_mode=True))
+    questions = []
+    for q in (data.get("questions") or [])[:count]:
+        text = str(q.get("question") or "").strip()
+        if text:
+            questions.append({"question": text[:400], "kind": str(q.get("kind") or "technical")[:20],
+                              "from_research": bool(q.get("from_research"))})
+    return questions
+
+
+async def decide_mock_followup(company: str, role: str, question: str, answer: str) -> str:
+    at_company = f" at {company}" if company else ""
+    prompt = f"""
+        You are a friendly but sharp interviewer{at_company} for a {role or 'professional'} role.
+        QUESTION: {question}
+        CANDIDATE'S ANSWER (speech transcript, may contain recognition errors): "{answer[:3000]}"
+
+        Decide whether to ask ONE follow-up question. Ask one only if the answer was vague, skipped the
+        candidate's own actions or the result, or made a claim worth probing (a number, tool or decision).
+        Ask nothing if the answer was already specific and complete, or the candidate said they don't know.
+        OUTPUT JSON ONLY: {{"follow_up": "<one short spoken question, max 25 words, or empty string>"}}
+        """
+    try:
+        config = genai_types.GenerateContentConfig(response_mime_type="application/json")
+        if COPILOT_THINKING_LEVEL:
+            config.thinking_config = genai_types.ThinkingConfig(thinking_level=COPILOT_THINKING_LEVEL)
+        resp = await ai_client.aio.models.generate_content(model=COPILOT_MODEL, contents=prompt, config=config)
+        return str(_parse_model_json(resp.text or "{}").get("follow_up") or "").strip()[:300]
+    except Exception as e:
+        logger.warning(f"Mock follow-up decision failed ({e}); moving on")
+        return ""
+
+
+async def score_mock_interview(ctx: dict, company: str, role: str, turns: list) -> dict:
+    lines = []
+    for i, turn in enumerate(turns, 1):
+        for j, ex in enumerate(turn["exchanges"]):
+            who = f"Q{i} [{turn['kind']}]" if j == 0 else "  Follow-up"
+            lines.append(f"{who}: {ex['question']}")
+            lines.append(f"  Candidate: {ex['answer'] if ex['answer'] else '(skipped / no answer)'}")
+    interview_text = "\n".join(lines)
+    at_company = f"at {company}" if company else ""
+    prompt = f"""
+        You are an experienced interview coach. Score this mock interview for a {role or 'professional'} role
+        {at_company}. Be honest and specific: strict but kind.
+
+        RESUME (use only these facts in better answers):
+        {ctx['resume'][:COPILOT_RESUME_CHARS]}
+
+        INTERVIEW (answers are speech transcripts and may contain recognition errors; judge the content):
+        {interview_text}
+
+        For each of the {len(turns)} questions (Q1..Q{len(turns)}, including its follow-up) return:
+        - score: 0-10 (0 if skipped or blank)
+        - feedback: at most 2 sentences on what worked and what didn't
+        - missing: the single most important thing missing, max 12 words ("" if nothing)
+        - better_answer: how the candidate could answer, first person, 60-110 words, only resume facts;
+          use STAR (situation, task, action, result) for behavioral questions
+        Also return overall_score 0-100 (85+ only for excellent), verdict (one direct sentence),
+        strengths (2-3 short points) and improvements (2-3 short, actionable points).
+        Plain text inside the JSON strings, no markdown.
+
+        OUTPUT JSON ONLY:
+        {{"overall_score": 0, "verdict": "", "strengths": [""], "improvements": [""],
+          "answers": [{{"score": 0, "feedback": "", "missing": "", "better_answer": ""}}]}}
+        """
+    return _parse_model_json(await generate_text_reliably(prompt, json_mode=True))
+
+
+class MockInterviewSession:
+    """One mock interview over a WebSocket. All state changes happen on the event loop."""
+
+    def __init__(self, websocket, user_id, user_email, ctx, company, role, count):
+        self.ws, self.user_id, self.user_email, self.ctx = websocket, user_id, user_email, ctx
+        self.company, self.role, self.count = company, role, count
+        self.loop = asyncio.get_running_loop()
+        self.stage = "preparing"     # preparing -> ready -> asking <-> answering -> thinking -> scoring -> done
+        self.questions = []
+        self.index = -1              # current main question
+        self.followups = 0           # follow-ups asked for the current main question
+        self.current_text = ""       # the question being answered (main or follow-up)
+        self.turns = []              # [{question, kind, exchanges: [{question, answer, seconds, skipped}]}]
+        self.answer_parts, self.answer_started = [], None
+        self.pause_handle = self.max_handle = None
+        self.tasks = set()
+        self.audio_queue = queue.Queue()
+        self.stop_event = threading.Event()
+        self.speech_thread = None
+        self.session_start = None
+        self.billed_seconds = 0
+        self.billing_task = None
+
+    # ---------- helpers ----------
+    async def send(self, payload):
+        if self.stage == "done":
+            return
+        try:
+            await self.ws.send_text(json.dumps(payload))
+        except Exception:
+            pass
+
+    def spawn(self, coro):
+        task = asyncio.create_task(coro)
+        self.tasks.add(task)
+        task.add_done_callback(self.tasks.discard)
+
+    def cancel_timers(self):
+        for handle in (self.pause_handle, self.max_handle):
+            if handle:
+                handle.cancel()
+        self.pause_handle = self.max_handle = None
+
+    # ---------- billing (same rules as the copilot) ----------
+    async def bill_elapsed(self):
+        if self.session_start is None:
+            return None
+        to_bill = int(time.monotonic() - self.session_start) - self.billed_seconds
+        if to_bill <= 0:
+            return None
+        self.billed_seconds += to_bill
+        return await asyncio.to_thread(_charge_usage, self.user_id, to_bill)
+
+    def stop_billing(self):
+        """Freeze the clock: nothing after this moment is charged."""
+        if self.billing_task:
+            self.billing_task.cancel()
+            self.billing_task = None
+
+    async def billing_loop(self):
+        try:
+            while True:
+                await asyncio.sleep(BILLING_INTERVAL_SECONDS)
+                remaining = await self.bill_elapsed()
+                if remaining is None:
+                    continue
+                await self.send({"type": "credits", "remaining_seconds": remaining})
+                if remaining <= 0:
+                    await self.send({"type": "notice", "message": "Your minutes ran out, so the interview ends here."})
+                    self.spawn(self.end("limit"))
+                    return
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            logger.error(f"Mock billing loop error: {e}")
+
+    # ---------- flow ----------
+    async def prepare(self):
+        research = {"text": "", "sources": [], "search_html": ""}
+        try:
+            if self.company:
+                await self.send({"type": "status", "stage": "researching",
+                                 "message": f"Searching the web for questions {self.company} asks… (about 20–30 seconds)"})
+            research = await research_company_questions(self.company, self.role)
+            await self.send({"type": "status", "stage": "planning", "message": "Writing your interview plan…"})
+            self.questions = await plan_mock_questions(self.ctx, self.company, self.role, research["text"], self.count)
+        except Exception as e:
+            logger.error(f"Mock prepare failed for {self.user_email}: {e}")
+            self.questions = []
+        if not self.questions:
+            await self.send({"type": "error", "message": "Couldn't prepare the interview. Please try again."})
+            await self.close()
+            return
+        self.stage = "ready"
+        await self.send({
+            "type": "plan_ready", "total": len(self.questions),
+            "researched": sum(1 for q in self.questions if q["from_research"]),
+            "sources": research["sources"], "search_html": research["search_html"],
+        })
+
+    def start(self):
+        if self.stage != "ready":
+            return
+        self.stage = "starting"
+        self.session_start = time.monotonic()   # billing starts with the first question
+        self.speech_thread = threading.Thread(
+            target=run_speech_stream, args=(self.audio_queue, self.stop_event, self.on_speech_from_thread), daemon=True)
+        self.speech_thread.start()
+        self.billing_task = asyncio.create_task(self.billing_loop())
+        logger.info(f"Mock interview started: {self.user_email} ({len(self.questions)} questions)")
+        self.spawn(self.next_question())
+
+    def finished(self) -> bool:
+        return self.stage in ("scoring", "done")
+
+    async def ask(self, text, follow_up=False):
+        if self.finished():
+            return
+        self.stage = "asking"
+        self.current_text = text
+        q = self.questions[self.index]
+        await self.send({"type": "question", "index": self.index, "total": len(self.questions), "text": text,
+                         "kind": q["kind"], "follow_up": follow_up, "from_research": q["from_research"]})
+
+    async def next_question(self):
+        if self.finished():
+            return
+        self.index += 1
+        self.followups = 0
+        if self.index >= len(self.questions):
+            await self.end("finished")
+            return
+        q = self.questions[self.index]
+        self.turns.append({"question": q["question"], "kind": q["kind"], "exchanges": []})
+        await self.ask(q["question"])
+
+    def on_listening(self):
+        """The interviewer finished speaking (browser voice): the candidate's turn starts."""
+        if self.stage != "asking":
+            return
+        self.stage = "answering"
+        self.answer_parts = []
+        self.answer_started = time.monotonic()
+        self.cancel_timers()
+        self.max_handle = self.loop.call_later(MOCK_MAX_ANSWER_SECONDS, self.finish_answer)
+
+    def on_speech_from_thread(self, transcript, is_final):
+        if not self.stop_event.is_set():
+            self.loop.call_soon_threadsafe(self.on_speech, transcript, is_final)
+
+    def on_speech(self, transcript, is_final):
+        if self.stage != "answering":
+            return   # speech while the interviewer talks or thinks doesn't count
+        self.spawn(self.send({"type": "transcript", "transcript": transcript, "is_final": is_final}))
+        if is_final and transcript.strip():
+            self.answer_parts.append(transcript.strip())
+        # Still talking: restart the pause timer
+        if self.pause_handle:
+            self.pause_handle.cancel()
+        self.pause_handle = self.loop.call_later(MOCK_ANSWER_PAUSE_SECONDS, self.on_pause)
+
+    def on_pause(self):
+        self.pause_handle = None
+        if self.stage == "answering" and len(_words(" ".join(self.answer_parts))) >= MOCK_MIN_WORDS_FOR_AUTO_END:
+            self.finish_answer()
+
+    def finish_answer(self, skipped=False):
+        if self.stage != "answering" and not (skipped and self.stage == "asking"):
+            return
+        self.cancel_timers()
+        self.stage = "thinking"
+        answer = "" if skipped else " ".join(self.answer_parts).strip()
+        seconds = time.monotonic() - self.answer_started if (self.answer_started and not skipped) else 0
+        self.answer_started = None
+        self.turns[-1]["exchanges"].append(
+            {"question": self.current_text, "answer": answer, "seconds": seconds, "skipped": not answer})
+        self.spawn(self.after_answer(answer))
+
+    async def after_answer(self, answer):
+        if self.stage != "thinking":
+            return   # the interview was ended during this answer: no follow-up needed
+        await self.send({"type": "status", "stage": "thinking", "message": "Thinking…"})
+        follow_up = ""
+        if self.followups < MOCK_MAX_FOLLOWUPS_PER_QUESTION and len(_words(answer)) >= MOCK_MIN_WORDS_FOR_FOLLOWUP:
+            follow_up = await decide_mock_followup(self.company, self.role, self.current_text, answer)
+        if self.stage != "thinking":
+            return   # the interview ended meanwhile
+        if follow_up:
+            self.followups += 1
+            await self.ask(follow_up, follow_up=True)
+        else:
+            await self.next_question()
+
+    async def end(self, reason):
+        if self.stage in ("preparing", "ready", "scoring", "done"):
+            if self.stage in ("preparing", "ready"):
+                await self.close()   # nothing was asked yet: just leave
+            return
+        if self.stage == "answering":
+            self.finish_answer()      # keep what was said so far
+        self.stage = "scoring"
+        self.cancel_timers()
+        self.stop_audio()
+        self.stop_billing()
+        try:
+            remaining = await self.bill_elapsed()
+            if remaining is not None:
+                await self.send({"type": "credits", "remaining_seconds": remaining})
+        except Exception as e:
+            logger.error(f"Mock final billing failed for {self.user_email}: {e}")
+        self.session_start = None     # scoring time is free
+        logger.info(f"Mock interview ended ({reason}): {self.user_email}, {len(self.turns)} questions")
+
+        if not any(ex["answer"] for t in self.turns for ex in t["exchanges"]):
+            await self.send({"type": "report", "empty": True, "reason": reason})
+            await self.close()
+            return
+        await self.send({"type": "status", "stage": "scoring", "message": "Scoring your interview…"})
+        try:
+            scored = await score_mock_interview(self.ctx, self.company, self.role, self.turns)
+        except Exception as e:
+            logger.error(f"Mock scoring failed for {self.user_email}: {e}")
+            scored = {}
+        await self.send(self.build_report(scored if isinstance(scored, dict) else {}, reason))
+        await self.close()
+
+    def build_report(self, scored: dict, reason: str) -> dict:
+        model_answers = scored.get("answers") or []
+        answers = []
+        for i, turn in enumerate(self.turns):
+            text = " ".join(ex["answer"] for ex in turn["exchanges"] if ex["answer"]).strip()
+            seconds = sum(ex["seconds"] for ex in turn["exchanges"])
+            m = model_answers[i] if i < len(model_answers) and isinstance(model_answers[i], dict) else {}
+            try:
+                score = max(0, min(10, int(m.get("score", 0))))
+            except (TypeError, ValueError):
+                score = 0
+            answers.append({
+                "question": turn["question"], "kind": turn["kind"],
+                "follow_ups": [ex["question"] for ex in turn["exchanges"][1:]],
+                "answer": text, "skipped": not text, "score": score if text else 0,
+                "feedback": str(m.get("feedback") or ""), "missing": str(m.get("missing") or ""),
+                "better_answer": str(m.get("better_answer") or ""),
+                **_answer_stats(text, seconds),
+            })
+        try:
+            overall = max(0, min(100, int(scored.get("overall_score", 0))))
+        except (TypeError, ValueError):
+            overall = 0
+
+        def short_list(value):
+            return [str(x) for x in value][:3] if isinstance(value, list) else []
+
+        return {
+            "type": "report", "empty": False, "reason": reason, "scored": bool(scored),
+            "company": self.company, "role": self.role, "overall_score": overall,
+            "verdict": str(scored.get("verdict") or ""),
+            "strengths": short_list(scored.get("strengths")), "improvements": short_list(scored.get("improvements")),
+            "answers": answers,
+        }
+
+    def stop_audio(self):
+        self.stop_event.set()
+        self.audio_queue.put(None)
+
+    async def close(self):
+        if self.stage == "done":
+            return
+        self.stage = "done"
+        try:
+            await self.ws.close(code=WS_CLOSE_MOCK_DONE)
+        except Exception:
+            pass
+
+    async def shutdown(self):
+        """The socket is gone: stop everything and bill the last partial interval."""
+        self.cancel_timers()
+        self.stop_audio()
+        self.stop_billing()
+        for task in list(self.tasks):
+            task.cancel()
+        try:
+            await self.bill_elapsed()
+        except Exception as e:
+            logger.error(f"Mock final billing failed for {self.user_email}: {e}")
+        if self.speech_thread:
+            await asyncio.to_thread(self.speech_thread.join, 5)
+
+    def on_command(self, command: str):
+        if command == "start":
+            self.start()
+        elif command == "listening":
+            self.on_listening()
+        elif command == "done":
+            self.finish_answer()
+        elif command == "skip":
+            self.finish_answer(skipped=True)
+        elif command == "end":
+            self.spawn(self.end("ended"))
+
+
+@app.websocket("/ws/mock")
+async def mock_interview_ws(websocket: WebSocket, token: str = None, company: str = "", role: str = "",
+                            length: str = "standard"):
+    await websocket.accept()
+    if not token:
+        await websocket.close(code=WS_CLOSE_AUTH_FAILED)
+        return
+    try:
+        user_id, user_email, remaining = await asyncio.to_thread(_authenticate_ws_user, token)
+    except Exception:
+        await websocket.close(code=WS_CLOSE_AUTH_FAILED)
+        return
+    if remaining <= 0:
+        await websocket.send_text(json.dumps({"type": "limit_reached"}))
+        await websocket.close(code=WS_CLOSE_LIMIT_REACHED)
+        return
+    ctx = get_user_context(user_id)
+    if not ai_client or not ctx["resume"]:
+        message = "Please upload your resume first." if ai_client else "AI is not available right now."
+        await websocket.send_text(json.dumps({"type": "error", "message": message}))
+        await websocket.close()
+        return
+
+    session = MockInterviewSession(websocket, user_id, user_email, ctx, (company or "").strip()[:80],
+                                   (role or "").strip()[:80],
+                                   MOCK_QUESTION_COUNTS.get(length, MOCK_QUESTION_COUNTS["standard"]))
+    logger.info(f"Mock interview connected: {user_email} ({session.company or '-'} / {session.role or '-'})")
+    session.spawn(session.prepare())
+    try:
+        while True:
+            message = await websocket.receive()
+            if message.get("type") == "websocket.disconnect":
+                break
+            if message.get("bytes"):
+                # The browser sends silence while the interviewer speaks, so only real answers are heard
+                if session.stage in ("asking", "answering", "thinking"):
+                    session.audio_queue.put(message["bytes"])
+            elif message.get("text"):
+                try:
+                    payload = json.loads(message["text"])
+                except Exception:
+                    payload = {}
+                if isinstance(payload, dict):
+                    session.on_command(str(payload.get("type") or ""))
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger.error(f"Mock WebSocket error: {e}")
+    finally:
+        await session.shutdown()

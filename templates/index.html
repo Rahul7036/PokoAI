@@ -2966,6 +2966,83 @@
         #landing-view footer { padding: 2rem 0 !important; }
         #landing-view section[id] { scroll-margin-top: 76px; }
         #landing-view button.lv-btn { font-family: var(--font-body); }
+
+        /* ===== Mock interview (reuses the copilot's .cp-* building blocks) ===== */
+        #mock-view {
+            --cp-scale: 1;
+            --cp-bg: #020617;
+            --cp-surface: #0b1224;
+            --cp-border: rgba(148, 163, 184, 0.18);
+            --cp-text: #f1f5f9;
+            --cp-muted: #94a3b8;
+            --cp-green: #22c55e;
+            --cp-amber: #f59e0b;
+            --cp-blue: #38bdf8;
+            --cp-red: #ef4444;
+            height: 100vh;
+            height: 100dvh;
+            background: #020617;
+        }
+        .mk-title { font-family: 'Outfit', sans-serif; font-size: 1.7rem; font-weight: 800; margin-bottom: 0.4rem; }
+        .mk-sub { color: var(--cp-muted); margin-bottom: 1.25rem; line-height: 1.5; }
+        .mk-form { display: grid; gap: 0.8rem; margin-bottom: 1.25rem; }
+        .mk-form label { display: grid; gap: 0.35rem; font-weight: 600; font-size: 0.9rem; }
+        .mk-form label span.mk-opt { color: var(--cp-muted); font-weight: 500; }
+        .mk-form input, .mk-form textarea, .mk-form select {
+            width: 100%; margin: 0; background: var(--cp-surface); border: 1px solid var(--cp-border);
+            color: var(--cp-text); border-radius: 12px; padding: 0.7rem 0.85rem; font: inherit; font-size: 1rem;
+        }
+        .mk-form textarea { min-height: 110px; resize: vertical; }
+        .mk-note { font-size: 0.85rem; color: var(--cp-muted); margin-top: 0.75rem; line-height: 1.5; }
+        .mk-center { text-align: center; max-width: 560px; margin: 0 auto; padding-top: 1.5rem; }
+        .mk-center .cp-rings { margin: 0 auto 1.5rem; }
+        .mk-sources { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center; margin: 0.75rem 0; }
+        .mk-sources a { font-size: 0.8rem; color: var(--cp-muted); border: 1px solid var(--cp-border); border-radius: 999px;
+            padding: 0.2rem 0.65rem; text-decoration: none; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .mk-sources a:hover { color: var(--cp-text); }
+        .mk-search-frame { width: 100%; border: 0; height: 64px; margin: 0.25rem 0 0.75rem; background: transparent; }
+        .mk-voice { display: inline-flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0 1.25rem; color: var(--cp-muted); font-weight: 600; cursor: pointer; }
+        .mk-qhead { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+        .mk-progress { font-size: 0.85rem; color: var(--cp-muted); font-weight: 700; }
+        .mk-chips { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+        .mk-chip { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--cp-muted);
+            border: 1px solid var(--cp-border); border-radius: 6px; padding: 0.1rem 0.5rem; }
+        .mk-chip.mk-chip-web { color: var(--cp-blue); border-color: rgba(56, 189, 248, 0.4); }
+        .mk-question { font-size: calc(1.5rem * var(--cp-scale)); line-height: 1.4; font-weight: 700; color: #fff; margin-bottom: 1.25rem; }
+        .mk-answer { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 14px; padding: 0.9rem 1rem;
+            min-height: 110px; color: var(--cp-text); line-height: 1.55; font-size: calc(1.05rem * var(--cp-scale)); }
+        .mk-answer:empty::before { content: attr(data-placeholder); color: var(--cp-muted); }
+        .mk-answer .mk-interim { color: var(--cp-muted); }
+        .mk-controls { display: grid; grid-template-columns: 1fr 1fr 1.6fr; gap: 0.5rem; }
+        .mk-report { max-width: 760px; margin: 0 auto; }
+        .mk-score { display: flex; align-items: center; gap: 1.25rem; margin-bottom: 1rem; }
+        .mk-score-num { font-family: 'Outfit', sans-serif; font-size: 3.4rem; font-weight: 800; line-height: 1; }
+        .mk-score-num small { font-size: 1.1rem; color: var(--cp-muted); font-weight: 600; }
+        .mk-verdict { font-size: 1.1rem; font-weight: 600; line-height: 1.45; }
+        .mk-lists { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0.75rem; margin: 1rem 0 1.5rem; }
+        .mk-box { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 14px; padding: 0.9rem 1rem; }
+        .mk-box h4 { font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 0.5rem; }
+        .mk-box ul { padding-left: 1.1rem; display: grid; gap: 0.35rem; color: var(--cp-text); line-height: 1.45; }
+        .mk-good h4 { color: var(--cp-green); }
+        .mk-fix h4 { color: var(--cp-amber); }
+        .mk-item { background: var(--cp-surface); border: 1px solid var(--cp-border); border-radius: 14px; padding: 0.9rem 1rem; margin-bottom: 0.75rem; }
+        .mk-item-top { display: flex; justify-content: space-between; gap: 0.75rem; align-items: baseline; }
+        .mk-item-q { font-weight: 700; line-height: 1.4; }
+        .mk-item-score { font-weight: 800; white-space: nowrap; }
+        .mk-item-score.hi { color: var(--cp-green); }
+        .mk-item-score.mid { color: var(--cp-amber); }
+        .mk-item-score.lo { color: var(--cp-red); }
+        .mk-item p { color: var(--cp-muted); line-height: 1.5; margin-top: 0.4rem; }
+        .mk-item p b { color: var(--cp-text); }
+        .mk-stats { font-size: 0.8rem; color: var(--cp-muted); margin-top: 0.4rem; }
+        .mk-item details { margin-top: 0.5rem; }
+        .mk-item summary { cursor: pointer; color: var(--cp-blue); font-weight: 600; font-size: 0.9rem; }
+        .mk-item details p { color: var(--cp-text); }
+        .mk-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; margin: 1.5rem 0 2rem; }
+        @media (max-width: 640px) {
+            .mk-lists, .mk-actions { grid-template-columns: minmax(0, 1fr); }
+            .mk-question { font-size: calc(1.3rem * var(--cp-scale)); }
+        }
     </style>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -3483,11 +3560,12 @@
                         <span class="db-tool-desc">₹299 for 45 minutes · ₹699 for 120 minutes.</span></span>
                     <span class="db-arrow" aria-hidden="true">&rarr;</span>
                 </button>
-                <div class="db-tool db-tool-soon" aria-disabled="true">
+                <button class="db-tool" type="button" onclick="openMock()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/></svg>
-                    <span class="db-tool-text"><span class="db-tool-title">Mock practice <span class="lp-badge">COMING SOON</span></span>
-                        <span class="db-tool-desc">Practise with an AI interviewer before the real call.</span></span>
-                </div>
+                    <span class="db-tool-text"><span class="db-tool-title">Mock interview <span class="lp-badge">NEW</span></span>
+                        <span class="db-tool-desc">An AI interviewer asks real questions this company is known to ask, then scores every answer.</span></span>
+                    <span class="db-arrow" aria-hidden="true">&rarr;</span>
+                </button>
             </div>
 
             <!-- Pre-interview checklist -->
@@ -3589,6 +3667,95 @@
             <div id="cpToast" class="cp-toast hidden" role="status"></div>
         </div>
     </div>
+    <!-- VIEW: MOCK INTERVIEW -->
+    <div id="mock-view" class="view">
+        <div class="cp">
+            <header class="cp-bar">
+                <button class="cp-icon-btn" onclick="showView('dashboard-view')" title="Back to dashboard"
+                    aria-label="Back to dashboard">&larr;</button>
+                <div id="mkState" class="cp-state idle" role="status" aria-live="polite">
+                    <span class="cp-dot"></span><span id="mkStateText">Mock interview</span>
+                </div>
+                <div class="cp-bar-right">
+                    <span id="mkCredits" class="cp-credits"></span>
+                    <button id="mkEndBtn" class="cp-toggle hidden" onclick="endMock()">End</button>
+                </div>
+            </header>
+
+            <main class="cp-main" id="mkMain">
+                <!-- 1. Setup -->
+                <section id="mkSetup" class="cp-idle">
+                    <div class="mk-title">Mock interview</div>
+                    <p class="mk-sub">An AI interviewer asks questions this company is known to ask (found on the web),
+                        plus questions about your resume. Answer out loud. At the end you get a score and a better
+                        answer for every question.</p>
+                    <div class="mk-form">
+                        <label>Company <input type="text" id="mkCompany" placeholder="e.g. Amazon, TCS, Flipkart" maxlength="80"></label>
+                        <label>Role <input type="text" id="mkRole" placeholder="e.g. Backend Engineer (SDE-2)" maxlength="80"></label>
+                        <label>Resume (PDF) <input type="file" id="mkResume" accept=".pdf"></label>
+                        <label>Job description <span class="mk-opt">(optional, but questions get better)</span>
+                            <textarea id="mkJd" placeholder="Paste the job description here"></textarea></label>
+                        <label>Length
+                            <select id="mkLength">
+                                <option value="short">Quick: 5 questions (about 10–15 min)</option>
+                                <option value="standard" selected>Full: 8 questions (about 20–25 min)</option>
+                            </select></label>
+                    </div>
+                    <button id="mkPrepareBtn" class="cp-start" onclick="prepareMock()">Prepare my interview</button>
+                    <p class="mk-note">Preparing and scoring are free. Your Copilot minutes are used only while the
+                        interview runs. Use headphones or a quiet room so the interviewer's voice isn't heard as your answer.</p>
+                </section>
+
+                <!-- 2. Preparing -->
+                <section id="mkPreparing" class="mk-center hidden">
+                    <div class="cp-rings"><span></span><span></span><span></span></div>
+                    <div id="mkPrepText" class="cp-waiting-text">Getting ready…</div>
+                </section>
+
+                <!-- 3. Ready -->
+                <section id="mkReady" class="mk-center hidden">
+                    <div class="mk-title" id="mkReadyTitle">Your interview is ready</div>
+                    <p class="mk-sub" id="mkReadySub"></p>
+                    <div id="mkSourcesWrap" class="hidden">
+                        <div class="mk-note" style="margin-top: 0;">Questions researched from:</div>
+                        <div id="mkSources" class="mk-sources"></div>
+                        <iframe id="mkSearchFrame" class="mk-search-frame hidden" title="Google Search suggestions"
+                            sandbox="allow-popups allow-popups-to-escape-sandbox"></iframe>
+                    </div>
+                    <ul class="cp-tips" style="text-align: left;">
+                        <li>🎙️ Answer out loud as you would in the real interview.</li>
+                        <li>⏸️ When you finish, tap <b>Done answering</b> (or just pause for a few seconds).</li>
+                        <li>🔁 The interviewer may ask a follow-up, just like a real one.</li>
+                    </ul>
+                    <label class="mk-voice"><input type="checkbox" id="mkVoice" checked> Read questions aloud</label>
+                    <button id="mkStartBtn" class="cp-start" onclick="startMock()">Start interview</button>
+                </section>
+
+                <!-- 4. Live -->
+                <section id="mkLive" class="cp-card hidden">
+                    <div class="mk-qhead">
+                        <span id="mkProgress" class="mk-progress"></span>
+                        <span id="mkChips" class="mk-chips"></span>
+                    </div>
+                    <div id="mkQuestion" class="mk-question"></div>
+                    <div class="cp-label">Your answer</div>
+                    <div id="mkAnswer" class="mk-answer" data-placeholder="Start speaking when the question finishes…"></div>
+                </section>
+
+                <!-- 5. Report -->
+                <section id="mkReport" class="mk-report hidden"></section>
+            </main>
+
+            <footer id="mkFooter" class="cp-footer hidden">
+                <div class="mk-controls">
+                    <button class="cp-btn" onclick="repeatMockQuestion()">Repeat</button>
+                    <button class="cp-btn" onclick="skipMockQuestion()">Skip</button>
+                    <button id="mkDoneBtn" class="cp-btn cp-btn-primary" onclick="doneMockAnswer()">Done answering</button>
+                </div>
+            </footer>
+        </div>
+    </div>
+
     <!-- VIEW: RESUME REVIEW -->
     <div id="resume-review-view" class="view">
         <header class="app-header">
@@ -3781,9 +3948,12 @@
             if (currentView && currentView.id === 'app-view' && viewId !== 'app-view') {
                 if (typeof forceStopApp === 'function') forceStopApp();
             }
+            if (currentView && currentView.id === 'mock-view' && viewId !== 'mock-view') {
+                if (typeof stopMock === 'function') stopMock();
+            }
 
             document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
-            document.body.classList.toggle('copilot-mode', viewId === 'app-view');
+            document.body.classList.toggle('copilot-mode', viewId === 'app-view' || viewId === 'mock-view');
             const target = document.getElementById(viewId);
             if (target) {
                 target.classList.add('active');
@@ -3833,6 +4003,8 @@
             badge.textContent = `${mins}m ${secs}s left`;
             const cp = document.getElementById('cpCredits');
             if (cp) cp.textContent = `${mins}m left`;
+            const mkc = document.getElementById('mkCredits');
+            if (mkc) mkc.textContent = `${mins}m left`;
         }
 
         // Escape any text before putting it into innerHTML (transcripts, AI text, etc.)
@@ -4836,6 +5008,401 @@
             const subject = encodeURIComponent(`Notify me: ${featureName}`);
             const body = encodeURIComponent(`Please let me know when ${featureName} is available.`);
             window.location.href = `mailto:pokoai0206@gmail.com?subject=${subject}&body=${body}`;
+        }
+
+        // =====================================================================
+        // MOCK INTERVIEW (server: /ws/mock)
+        // The server sends a question -> the browser reads it aloud -> the mic opens -> the candidate
+        // answers -> "Done" or a pause ends the answer -> follow-up or next question -> score report.
+        // =====================================================================
+        const mk = {
+            ws: null, stopping: false, finished: false, voice: true,
+            question: '', total: 0, company: '', finals: '', interim: '', micOpen: false, answering: false,
+        };
+        let mkAudioCtx = null, mkStream = null, mkSource = null, mkWorklet = null, mkSilent = null;
+        const MK_SECTIONS = ['mkSetup', 'mkPreparing', 'mkReady', 'mkLive', 'mkReport'];
+        const MK_KIND_LABELS = { warmup: 'Warm-up', company: 'Company', resume: 'Your resume', technical: 'Technical',
+            behavioral: 'Behavioral', hr: 'HR' };
+
+        function mkShow(section) {
+            MK_SECTIONS.forEach(id => $(id).classList.toggle('hidden', id !== section));
+            $('mkFooter').classList.toggle('hidden', section !== 'mkLive');
+            $('mkEndBtn').classList.toggle('hidden', section !== 'mkLive');
+            $('mkMain').scrollTop = 0;
+        }
+
+        function mkSetState(state, text) {
+            $('mkState').className = `cp-state ${state}`;
+            $('mkStateText').textContent = text;
+        }
+
+        function openMock() {
+            stopMock();
+            mkShow('mkSetup');
+            mkSetState('idle', 'Mock interview');
+            showView('mock-view');
+            updateCredits();
+        }
+
+        async function prepareMock() {
+            const company = $('mkCompany').value.trim(), role = $('mkRole').value.trim();
+            const resume = $('mkResume').files[0], jd = $('mkJd').value.trim();
+            if (!company || !role) { notify('Enter the company and the role you are interviewing for.', 'error'); return; }
+            if (!resume) { notify('Add your resume (PDF) so the questions fit your experience.', 'error'); return; }
+
+            await withBusyButton($('mkPrepareBtn'), 'Uploading…', async () => {
+                try {
+                    const fd = new FormData();
+                    fd.append('resume_file', resume);
+                    fd.append('jd', jd || `Role: ${role}`);
+                    fd.append('company', company);
+                    const res = await fetch('/update_context', { method: 'POST', body: fd, headers: authHeaders() });
+                    if (res.status === 401) { handleAuthFailure(); return; }
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok || data.status === 'error') { notify(data.message || "Couldn't read your resume. Try another PDF.", 'error'); return; }
+                } catch (e) {
+                    notify("Can't reach PrapAI. Check your connection and try again.", 'error');
+                    return;
+                }
+                mkConnect(company, role, $('mkLength').value);
+            });
+        }
+
+        function mkConnect(company, role, length) {
+            stopMock();
+            mk.stopping = false; mk.finished = false; mk.company = company;
+            $('mkPrepText').textContent = 'Getting ready…';
+            mkShow('mkPreparing');
+            mkSetState('thinking', 'Preparing…');
+
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const params = new URLSearchParams({ token: localStorage.getItem('token') || '', company, role, length });
+            const socket = new WebSocket(`${protocol}//${window.location.host}/ws/mock?${params}`);
+            mk.ws = socket;
+            socket.onmessage = (e) => { if (mk.ws === socket) mkHandle(JSON.parse(e.data)); };
+            socket.onclose = (e) => {
+                if (mk.ws !== socket) return;
+                mk.ws = null;
+                mkStopAudio();
+                if (mk.stopping || mk.finished) return;
+                if (e.code === 4003) {
+                    setCreditBadge(0);
+                    showLimitReached("You've used all your minutes. Buy more to practise again.");
+                    mkShow('mkSetup');
+                } else if (e.code === 4001) {
+                    handleAuthFailure();
+                } else {
+                    notify('The interview connection was lost. Please start again.', 'error');
+                    mkShow('mkSetup');
+                }
+                mkSetState('error', 'Disconnected');
+            };
+        }
+
+        function mkHandle(data) {
+            switch (data.type) {
+                case 'status':
+                    if (data.stage === 'thinking') mkSetState('thinking', 'Thinking…');
+                    else {
+                        $('mkPrepText').textContent = data.message || 'Working…';
+                        if (data.stage === 'scoring') { mkShow('mkPreparing'); mkSetState('thinking', 'Scoring…'); }
+                    }
+                    break;
+                case 'plan_ready': mkShowReady(data); break;
+                case 'question': mkAsk(data); break;
+                case 'transcript':
+                    if (data.is_final) { mk.finals = `${mk.finals} ${data.transcript}`.trim(); mk.interim = ''; }
+                    else mk.interim = data.transcript;
+                    mkRenderAnswer();
+                    break;
+                case 'credits': setCreditBadge(data.remaining_seconds); break;
+                case 'notice': notify(data.message); break;
+                case 'limit_reached':
+                    setCreditBadge(0);
+                    showLimitReached("You've used all your minutes. Buy more to practise again.");
+                    break;
+                case 'report':
+                    mk.finished = true;
+                    mkStopAudio();
+                    mkRenderReport(data);
+                    updateCredits();
+                    break;
+                case 'error':
+                    mk.finished = true;
+                    notify(data.message || 'Something went wrong. Please try again.', 'error');
+                    mkShow('mkSetup');
+                    mkSetState('idle', 'Mock interview');
+                    break;
+            }
+        }
+
+        function mkShowReady(data) {
+            mk.total = data.total;
+            const researched = data.researched || 0;
+            $('mkReadySub').textContent = `${data.total} questions` + (researched
+                ? `, ${researched} based on questions candidates report from real ${mk.company} interviews.`
+                : '. We found little public info for this company, so questions are based on your resume and the role.');
+            const sources = data.sources || [];
+            $('mkSources').innerHTML = sources.filter(s => /^https:\/\//i.test(s.uri || '')).map(s =>
+                `<a href="${escapeHtml(s.uri)}" target="_blank" rel="noopener">${escapeHtml(s.title)}</a>`).join('');
+            // Google asks for its "Search suggestions" to be shown with web-grounded results
+            const frame = $('mkSearchFrame');
+            frame.classList.toggle('hidden', !data.search_html);
+            frame.srcdoc = data.search_html || '';
+            $('mkSourcesWrap').classList.toggle('hidden', !sources.length && !data.search_html);
+            mkShow('mkReady');
+            mkSetState('idle', 'Ready');
+        }
+
+        async function startMock() {
+            if (!mk.ws || mk.ws.readyState !== WebSocket.OPEN) { notify('The interview expired. Please prepare it again.', 'error'); mkShow('mkSetup'); return; }
+            mk.voice = $('mkVoice').checked && 'speechSynthesis' in window;
+            // Phones only allow speech and audio after a tap, so unlock both right here
+            if (mk.voice) { try { speechSynthesis.cancel(); speechSynthesis.speak(new SpeechSynthesisUtterance(' ')); } catch (e) { } }
+            await withBusyButton($('mkStartBtn'), 'Starting…', async () => {
+                try {
+                    mkStream = await navigator.mediaDevices.getUserMedia({
+                        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                    });
+                    mkAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    await mkAudioCtx.audioWorklet.addModule(getPcmWorkletUrl());
+                    mkWorklet = new AudioWorkletNode(mkAudioCtx, 'pcm-16k', {
+                        numberOfInputs: 1, numberOfOutputs: 1,
+                        channelCount: 1, channelCountMode: 'explicit', channelInterpretation: 'speakers',
+                    });
+                    mkSource = mkAudioCtx.createMediaStreamSource(mkStream);
+                    mkSource.connect(mkWorklet);
+                    mkSilent = mkAudioCtx.createGain();
+                    mkSilent.gain.value = 0;
+                    mkWorklet.connect(mkSilent);
+                    mkSilent.connect(mkAudioCtx.destination);
+                    // Silence while the interviewer speaks (so its voice isn't taken as the answer); the
+                    // stream itself keeps flowing so the speech service stays connected
+                    const silence = new Int16Array(1600).buffer;
+                    mkWorklet.port.onmessage = (e) => {
+                        if (mk.ws && mk.ws.readyState === WebSocket.OPEN) mk.ws.send(mk.micOpen ? e.data.pcm : silence);
+                    };
+                    if (mkAudioCtx.state === 'suspended') await mkAudioCtx.resume();
+                } catch (e) {
+                    console.error(e);
+                    mkStopAudio();
+                    notify('Could not access the microphone. Please allow microphone access and try again.', 'error');
+                    return;
+                }
+                keepScreenOn();
+                mk.ws.send(JSON.stringify({ type: 'start' }));
+                mkSetState('thinking', 'Starting…');
+            });
+        }
+
+        function mkAsk(data) {
+            mk.question = data.text;
+            mk.finals = ''; mk.interim = ''; mk.answering = false;
+            $('mkProgress').textContent = `Question ${data.index + 1} of ${data.total}`;
+            const chips = [];
+            if (data.follow_up) chips.push('<span class="mk-chip">Follow-up</span>');
+            else if (MK_KIND_LABELS[data.kind]) chips.push(`<span class="mk-chip">${MK_KIND_LABELS[data.kind]}</span>`);
+            if (data.from_research && !data.follow_up) chips.push('<span class="mk-chip mk-chip-web">Asked in real interviews</span>');
+            $('mkChips').innerHTML = chips.join('');
+            $('mkQuestion').textContent = data.text;
+            mkRenderAnswer();
+            mkShow('mkLive');
+            $('mkDoneBtn').disabled = true;
+            mkSpeak(data.text, mkOpenMic);
+        }
+
+        function mkPickVoice() {
+            const voices = speechSynthesis.getVoices();
+            return voices.find(v => /en[-_]IN/i.test(v.lang)) ||
+                voices.find(v => /^en/i.test(v.lang) && /Google|Natural|Neural/i.test(v.name)) ||
+                voices.find(v => /^en/i.test(v.lang)) || null;
+        }
+
+        // Stop any speech. Bumping the id means an interrupted question never counts as "finished"
+        // (browsers report a cancelled utterance as ended, which would open the mic too early)
+        let mkSpeakId = 0;
+        function mkCancelSpeech() {
+            mkSpeakId++;
+            try { speechSynthesis.cancel(); } catch (e) { }
+        }
+
+        // Read the question aloud with the browser's voice, then call done()
+        function mkSpeak(text, done) {
+            mkCancelSpeech();
+            const id = mkSpeakId;
+            mk.micOpen = false;
+            mkSetState('answering', 'Interviewer speaking');
+            if (!mk.voice) { done(); return; }
+            let finished = false;
+            const finish = () => {
+                if (finished) return;
+                finished = true;
+                clearTimeout(guard);
+                if (id === mkSpeakId) done();
+            };
+            // Some browsers never fire "end": don't wait forever
+            const guard = setTimeout(finish, Math.min(30000, 2500 + text.length * 90));
+            try {
+                const u = new SpeechSynthesisUtterance(text);
+                const voice = mkPickVoice();
+                if (voice) u.voice = voice;
+                u.lang = voice ? voice.lang : 'en-IN';
+                u.onend = finish;
+                u.onerror = finish;
+                speechSynthesis.speak(u);
+            } catch (e) { finish(); }
+        }
+
+        function mkOpenMic() {
+            if (!mk.ws || mk.finished) return;
+            // A short gap so the end of the interviewer's voice isn't picked up
+            setTimeout(() => {
+                if (!mk.ws || mk.finished) return;
+                mk.micOpen = true;
+                mk.answering = true;
+                $('mkDoneBtn').disabled = false;
+                mk.ws.send(JSON.stringify({ type: 'listening' }));
+                mkSetState('listening', 'Your turn: speak now');
+            }, 300);
+        }
+
+        function mkRenderAnswer() {
+            const box = $('mkAnswer');
+            box.innerHTML = mk.finals || mk.interim
+                ? `${escapeHtml(mk.finals)} <span class="mk-interim">${escapeHtml(mk.interim)}</span>`.trim()
+                : '';
+        }
+
+        function mkSend(type) {
+            if (mk.ws && mk.ws.readyState === WebSocket.OPEN) mk.ws.send(JSON.stringify({ type }));
+        }
+
+        function doneMockAnswer() {
+            if (!mk.answering) return;
+            mk.answering = false; mk.micOpen = false;
+            $('mkDoneBtn').disabled = true;
+            mkSend('done');
+            mkSetState('thinking', 'Thinking…');
+        }
+
+        function skipMockQuestion() {
+            mkCancelSpeech();
+            mk.answering = false; mk.micOpen = false;
+            $('mkDoneBtn').disabled = true;
+            mkSend('skip');
+            mkSetState('thinking', 'Next question…');
+        }
+
+        function repeatMockQuestion() {
+            if (!mk.question) return;
+            const wasAnswering = mk.answering;
+            mkSpeak(mk.question, () => {
+                if (!mk.ws || mk.finished) return;
+                if (wasAnswering) {   // the answer clock is already running: just reopen the mic
+                    mk.micOpen = true;
+                    mkSetState('listening', 'Your turn: speak now');
+                } else {
+                    mkOpenMic();
+                }
+            });
+        }
+
+        function endMock() {
+            if (!confirm('End the interview now and get your score for the questions so far?')) return;
+            mkCancelSpeech();
+            mk.answering = false; mk.micOpen = false;
+            mkSend('end');
+            mkSetState('thinking', 'Ending…');
+        }
+
+        function mkStopAudio() {
+            mk.micOpen = false; mk.answering = false;
+            mkCancelSpeech();
+            if (mkWorklet) { mkWorklet.port.onmessage = null; try { mkWorklet.disconnect(); } catch (e) { } }
+            [mkSource, mkSilent].forEach(n => { if (n) { try { n.disconnect(); } catch (e) { } } });
+            if (mkStream) mkStream.getTracks().forEach(t => t.stop());
+            if (mkAudioCtx) mkAudioCtx.close().catch(() => { });
+            mkAudioCtx = mkStream = mkSource = mkWorklet = mkSilent = null;
+            releaseScreen();
+        }
+
+        // Leave the mock screen (safe to call more than once)
+        function stopMock() {
+            mk.stopping = true;
+            const socket = mk.ws;
+            mk.ws = null;
+            mkStopAudio();
+            if (socket && socket.readyState <= WebSocket.OPEN) socket.close();
+        }
+
+        function mkRenderReport(r) {
+            const report = $('mkReport');
+            mkSetState('idle', 'Finished');
+            const actions = `<div class="mk-actions">
+                ${r.empty ? '' : '<button class="cp-btn" onclick="copyMockReport()">Copy report</button>'}
+                <button class="cp-btn cp-btn-primary" onclick="openMock()">New mock interview</button>
+                <button class="cp-btn" onclick="showView('dashboard-view')">Dashboard</button></div>`;
+            if (r.empty) {
+                report.innerHTML = `<div class="mk-center"><div class="mk-title">No answers recorded</div>
+                    <p class="mk-sub">The interview ended before any answers were heard, so there's nothing to score.
+                    Check that your microphone works and try again.</p>${actions}</div>`;
+                mkShow('mkReport');
+                return;
+            }
+            mk.lastReport = r;
+            const scoreClass = (s) => s >= 7 ? 'hi' : s >= 4 ? 'mid' : 'lo';
+            const list = (items) => items.map(x => `<li>${escapeHtml(x)}</li>`).join('');
+            const items = r.answers.map((a, i) => {
+                const fillers = Object.entries(a.fillers || {}).map(([w, n]) => `"${w}" ×${n}`).join(', ');
+                const stats = a.skipped ? 'Skipped' : [
+                    a.wpm ? `${a.wpm} words/min` : null,
+                    a.seconds ? `${a.seconds}s` : null,
+                    fillers ? `Fillers: ${fillers}` : 'No filler words',
+                ].filter(Boolean).join(' · ');
+                return `<div class="mk-item">
+                    <div class="mk-item-top">
+                        <div class="mk-item-q">${i + 1}. ${escapeHtml(a.question)}</div>
+                        <div class="mk-item-score ${scoreClass(a.score)}">${a.skipped ? '—' : `${a.score}/10`}</div>
+                    </div>
+                    ${a.feedback ? `<p>${escapeHtml(a.feedback)}</p>` : ''}
+                    ${a.missing ? `<p><b>Missing:</b> ${escapeHtml(a.missing)}</p>` : ''}
+                    <div class="mk-stats">${escapeHtml(stats)}</div>
+                    ${a.answer ? `<details><summary>Your answer</summary><p>${escapeHtml(a.answer)}</p></details>` : ''}
+                    ${a.better_answer ? `<details><summary>A stronger answer</summary><p>${escapeHtml(a.better_answer)}</p></details>` : ''}
+                </div>`;
+            }).join('');
+            report.innerHTML = `
+                <div class="mk-score">
+                    <div class="mk-score-num">${r.scored ? r.overall_score : '–'}<small>/100</small></div>
+                    <div class="mk-verdict">${escapeHtml(r.verdict || (r.scored ? '' : "Scoring didn't work this time, but your answers and stats are below."))}</div>
+                </div>
+                <div class="mk-note" style="margin-top:0">${escapeHtml([r.company, r.role].filter(Boolean).join(' · '))}
+                    ${r.reason === 'limit' ? ' · ended early: minutes ran out' : r.reason === 'ended' ? ' · ended early' : ''}</div>
+                ${(r.strengths.length || r.improvements.length) ? `<div class="mk-lists">
+                    <div class="mk-box mk-good"><h4>What went well</h4><ul>${list(r.strengths)}</ul></div>
+                    <div class="mk-box mk-fix"><h4>Work on this</h4><ul>${list(r.improvements)}</ul></div>
+                </div>` : ''}
+                ${items}
+                <p class="mk-note">This report isn't saved. Copy it if you want to keep it.</p>
+                ${actions}`;
+            mkShow('mkReport');
+        }
+
+        async function copyMockReport() {
+            const r = mk.lastReport;
+            if (!r) return;
+            const lines = [`PrapAI mock interview: ${[r.company, r.role].filter(Boolean).join(', ')}`,
+                `Score: ${r.overall_score}/100. ${r.verdict}`, ''];
+            if (r.strengths.length) lines.push('What went well:', ...r.strengths.map(s => `- ${s}`), '');
+            if (r.improvements.length) lines.push('Work on this:', ...r.improvements.map(s => `- ${s}`), '');
+            r.answers.forEach((a, i) => {
+                lines.push(`${i + 1}. ${a.question}  (${a.skipped ? 'skipped' : a.score + '/10'})`);
+                if (a.feedback) lines.push(`   ${a.feedback}`);
+                if (a.better_answer) lines.push(`   Stronger answer: ${a.better_answer}`);
+                lines.push('');
+            });
+            try { await navigator.clipboard.writeText(lines.join('\n')); notify('Report copied', 'success'); }
+            catch (e) { notify("Couldn't copy. Select the text and copy it instead.", 'error'); }
         }
 
         window.onload = checkAuth;
