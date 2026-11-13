@@ -2187,6 +2187,33 @@
 
         .cp-detail summary::after { content: " \25BE"; }
         .cp-detail[open] summary::after { content: " \25B4"; }
+        /* Answer mode switch: Smart / Answer all / On tap */
+        .cp-mode-label { font-size: 0.8rem; font-weight: 700; color: var(--cp-muted); margin: 0.25rem 0 0.4rem; }
+        .cp-modes {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 4px;
+            padding: 3px;
+            border: 1px solid var(--cp-border);
+            border-radius: 12px;
+            background: var(--cp-surface);
+        }
+        .cp-mode {
+            height: 36px;
+            border: 0;
+            border-radius: 9px;
+            background: transparent;
+            color: var(--cp-muted);
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .cp-mode.on { background: rgba(56, 189, 248, 0.18); color: #e0f2fe; }
+        .cp-mode:focus-visible { outline: 2px solid var(--cp-blue); outline-offset: 1px; }
+        .cp-modes-footer { margin-bottom: 0.5rem; }
+        .cp-modes-footer .cp-mode { height: 30px; font-size: 0.8rem; }
+        .cp-mode-hint { font-size: 0.82rem; color: var(--cp-muted); margin: 0.45rem 0 1rem; line-height: 1.45; }
         .cp-say-rest {
             display: block;
             margin-top: 0.45rem;
@@ -3139,6 +3166,8 @@
                 <h3 style="font-size: 1.8rem; margin-bottom: 1rem;">Upload Your Resume</h3>
                 <p style="color: var(--text-secondary); margin-bottom: 2rem;">We analyze your background to provide
                     personalized interview answers.</p>
+                <p id="savedResumeNote" class="hidden"
+                    style="margin-bottom: 1rem; padding: 0.75rem 1rem; border-radius: 12px; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.35);"></p>
                 <input type="file" id="resumeInput" accept=".pdf">
                 <div style="display: flex; gap: 1rem; margin-top: 2rem;">
                     <button class="btn-outline" style="flex: 1;"
@@ -3495,7 +3524,7 @@
         <details><summary>What if I'm wearing headphones?</summary><p>Then your phone can't hear the interviewer. Open PrapAI on the laptop, choose "Mic + meeting audio" and share the tab that has your call.</p></details>
         <details><summary>How fast are the answers?</summary><p>The first words usually appear about a second after the interviewer stops talking. The rest fills in while you say the opening line.</p></details>
         <details><summary>Will the answers sound like me?</summary><p>They use only facts from your resume and are short cues, not a script. You say them in your own words.</p></details>
-        <details><summary>What happens to my resume?</summary><p>It's read to prepare answers and kept in memory while you use PrapAI. It isn't saved to our database, and it's cleared when you upload a new one.</p></details>
+        <details><summary>What happens to my resume?</summary><p>It's read to prepare answers and kept in memory on our server while you use PrapAI. It isn't saved to our database. So you don't have to upload it again after a refresh or for your next interview, the resume text, company and job description are also kept in your own browser on this device. Signing out clears them.</p></details>
         <details><summary>How do I buy more minutes?</summary><p>Sign in, then tap "Buy" on a plan. A ready email to us opens in Gmail (or your mail app) with the plan and your account email filled in: just press Send. We reply with UPI payment details and add the minutes to your account once the payment arrives. Minutes are only used while the copilot is listening, and they don't expire.</p></details>
         <details><summary>Is using it allowed in my interview?</summary><p>That depends on the company. Some don't allow outside help during interviews, so check the rules for yours. PrapAI also works well for practice and mock interviews.</p></details>
       </div>
@@ -3643,14 +3672,25 @@
                             <option value="mic+meeting">🎤+🖥️ Mic + meeting audio</option>
                         </select>
                     </label>
+                    <div class="cp-mode-label">When to answer</div>
+                    <div class="cp-modes" role="radiogroup" aria-label="When to answer">
+                        <button type="button" class="cp-mode" role="radio" data-mode="smart">Smart</button>
+                        <button type="button" class="cp-mode" role="radio" data-mode="all">Answer all</button>
+                        <button type="button" class="cp-mode" role="radio" data-mode="manual">On tap</button>
+                    </div>
+                    <p class="cp-mode-hint" data-mode-hint></p>
                     <button id="startBtn" class="cp-start" onclick="startCopilot()">Start listening</button>
                 </section>
 
                 <!-- Listening, no answer yet -->
                 <section id="cpWaiting" class="cp-waiting hidden">
                     <div class="cp-rings"><span></span><span></span><span></span></div>
-                    <div class="cp-waiting-text">Listening for the first question&hellip;</div>
+                    <div id="cpWaitingText" class="cp-waiting-text">Listening for the first question&hellip;</div>
                 </section>
+
+                <!-- After a refresh: one tap to continue (shown only when needed) -->
+                <button id="cpResumeBtn" class="cp-start hidden" style="margin: 0 auto 1rem; display: block; max-width: 560px;"
+                    onclick="onResumePrompt()">▶ Continue listening</button>
 
                 <!-- The answer you are reading -->
                 <article id="cpCard" class="cp-card hidden">
@@ -3680,6 +3720,11 @@
             <!-- Live transcript + controls -->
             <footer id="cpFooter" class="cp-footer hidden">
                 <button id="cpNewBadge" class="cp-new hidden" onclick="jumpToLatest()">New answer &darr;</button>
+                <div class="cp-modes cp-modes-footer" role="radiogroup" aria-label="When to answer">
+                    <button type="button" class="cp-mode" role="radio" data-mode="smart">Smart</button>
+                    <button type="button" class="cp-mode" role="radio" data-mode="all">Answer all</button>
+                    <button type="button" class="cp-mode" role="radio" data-mode="manual">On tap</button>
+                </div>
                 <div id="cpTranscript" class="cp-transcript">&nbsp;</div>
                 <div class="cp-controls">
                     <button id="cpPrev" class="cp-nav" onclick="showAnswer(viewIndex - 1)" aria-label="Previous answer">&lsaquo;</button>
@@ -3717,6 +3762,7 @@
                     <div class="mk-form">
                         <label>Company <input type="text" id="mkCompany" placeholder="e.g. Amazon, TCS, Flipkart" maxlength="80"></label>
                         <label>Role <input type="text" id="mkRole" placeholder="e.g. Backend Engineer (SDE-2)" maxlength="80"></label>
+                        <p id="mkSavedResume" class="mk-note hidden" style="margin: 0;"></p>
                         <label>Resume (PDF) <input type="file" id="mkResume" accept=".pdf"></label>
                         <label>Job description <span class="mk-opt">(optional, but questions get better)</span>
                             <textarea id="mkJd" placeholder="Paste the job description here"></textarea></label>
@@ -3979,6 +4025,7 @@
 
             document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
             document.body.classList.toggle('copilot-mode', viewId === 'app-view' || viewId === 'mock-view');
+            rememberView(viewId);   // so a refresh brings the user back here
             const target = document.getElementById(viewId);
             if (target) {
                 target.classList.add('active');
@@ -4003,11 +4050,107 @@
 
         function openLogin() { document.getElementById('login-overlay').classList.remove('hidden'); }
         function closeLogin() { document.getElementById('login-overlay').classList.add('hidden'); }
-        function logout() { localStorage.removeItem('token'); window.location.reload(); }
+        function logout() { clearSavedSession(); localStorage.removeItem('token'); window.location.reload(); }
 
         function authHeaders() {
             const token = localStorage.getItem('token');
             return token ? { 'Authorization': `Bearer ${token}` } : {};
+        }
+
+        // ----- Survive a page refresh (and a server restart) -----
+        // Saved only in this browser, never in our database:
+        //   localStorage   prapSetup.v1 : resume text + file name, company, JD, role (for this account only)
+        //   sessionStorage prapView     : which screen the user was on (this tab)
+        //   sessionStorage prapAnswers  : the copilot answers shown so far (this tab)
+        const SETUP_KEY = 'prapSetup.v1', VIEW_KEY = 'prapView', ANSWERS_KEY = 'prapAnswers', LISTENING_KEY = 'prapListening';
+        const RESTORABLE_VIEWS = ['dashboard-view', 'app-view', 'mock-view', 'resume-review-view'];
+
+        // The signed-in account (the token's "sub"), so one person's resume is never shown to another
+        function tokenOwner() {
+            try {
+                const part = (localStorage.getItem('token') || '').split('.')[1] || '';
+                return JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/'))).sub || '';
+            } catch (e) { return ''; }
+        }
+
+        function loadSetup() {
+            try {
+                const s = JSON.parse(localStorage.getItem(SETUP_KEY) || 'null');
+                if (s && typeof s === 'object' && s.owner && s.owner === tokenOwner()) return s;
+            } catch (e) { }
+            return {};
+        }
+
+        function saveSetup(patch) {
+            const owner = tokenOwner();
+            if (!owner) return;
+            try { localStorage.setItem(SETUP_KEY, JSON.stringify({ ...loadSetup(), ...patch, owner, savedAt: Date.now() })); }
+            catch (e) { }
+        }
+
+        function clearSavedSession() {
+            try { localStorage.removeItem(SETUP_KEY); } catch (e) { }
+            try { [VIEW_KEY, ANSWERS_KEY, LISTENING_KEY].forEach(k => sessionStorage.removeItem(k)); } catch (e) { }
+        }
+
+        function rememberView(viewId) {
+            if (!RESTORABLE_VIEWS.includes(viewId)) return;
+            try { sessionStorage.setItem(VIEW_KEY, viewId); } catch (e) { }
+        }
+
+        // Give the server back the saved resume/JD if it lost them (Render restarts wipe server memory).
+        // The server only fills in what it doesn't have, so this is safe to call any time.
+        async function restoreServerContext() {
+            const s = loadSetup();
+            if (!s.resume) return;
+            try {
+                await fetch('/api/context/restore', {
+                    method: 'POST',
+                    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ resume: s.resume, jd: s.jd || '', company: s.company || '' }),
+                });
+            } catch (e) { /* offline: the next upload will set it */ }
+        }
+
+        // Send the setup to the server: a new PDF if one was chosen, otherwise the saved resume text.
+        // Returns an error message, or '' on success (and remembers the setup on this device).
+        async function sendContext(resumeFile, jd, company) {
+            const fd = new FormData();
+            if (resumeFile) fd.append('resume_file', resumeFile);
+            else fd.append('resume_text', loadSetup().resume || '');
+            fd.append('jd', jd);
+            fd.append('company', company);
+            const res = await fetch('/update_context', { method: 'POST', body: fd, headers: authHeaders() });
+            if (res.status === 401) { handleAuthFailure(); return 'auth'; }
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data.status !== 'success') return data.message || "Couldn't save your details. Please try again.";
+            const patch = { company, jd };
+            if (resumeFile && data.resume_text) { patch.resume = data.resume_text; patch.resumeName = resumeFile.name; }
+            saveSetup(patch);
+            return '';
+        }
+
+        // "Using your saved resume: X.pdf" above a resume file picker
+        function showSavedResumeNote(elementId, saved) {
+            const note = document.getElementById(elementId);
+            if (!note) return;
+            note.classList.toggle('hidden', !saved.resume);
+            if (saved.resume) {
+                const when = saved.savedAt ? new Date(saved.savedAt).toLocaleDateString() : '';
+                note.innerHTML = `✅ Using your saved resume: <b>${escapeHtml(saved.resumeName || 'resume.pdf')}</b>` +
+                    `${when ? ` (${escapeHtml(when)})` : ''}. Choose a file below only if you want to replace it.`;
+            }
+        }
+
+        // Keep what the user types, so a refresh in the middle of setup doesn't lose a pasted JD
+        function saveDraftOnInput(elementId, field) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            let timer = null;
+            el.addEventListener('input', () => {
+                clearTimeout(timer);
+                timer = setTimeout(() => saveSetup({ [field]: el.value }), 400);
+            });
         }
 
         function handleAuthFailure() {
@@ -4048,8 +4191,17 @@
 
         function checkAuth() {
             const token = localStorage.getItem('token');
-            if (token) { showView('dashboard-view'); updateCredits(); offerPlansAfterLogin(); }
-            else showView('landing-view');
+            if (!token) { showView('landing-view'); return; }
+            let lastView = null;
+            try { lastView = sessionStorage.getItem(VIEW_KEY); } catch (e) { }
+            updateCredits();
+            restoreServerContext();
+            // Put the user back where they were before the refresh
+            if (lastView === 'app-view' && loadSetup().resume) restoreCopilotScreen();
+            else if (lastView === 'mock-view') openMock();
+            else if (lastView === 'resume-review-view') showResumeReview();
+            else showView('dashboard-view');
+            offerPlansAfterLogin();
         }
 
         async function updateCredits() {
@@ -4329,16 +4481,17 @@
             const btn = document.querySelector('#step2 .btn-primary'), resumeFile = document.getElementById('resumeInput').files[0];
             const jd = document.getElementById('jdInput').value, company = document.getElementById('companyInput').value;
 
-            if (!resumeFile || !jd || !company) { notify("Please complete Step 1 & 2 first."); return; }
+            if (!resumeFile && !loadSetup().resume) { notify("Please upload your resume first (Step 1)."); nextStep(1); return; }
+            if (!jd || !company) { notify("Please add the company name and the job description."); return; }
 
             const originalText = btn.innerText;
             btn.innerText = "Analyzing JD...";
             btn.disabled = true;
 
             try {
-                const fd = new FormData(); fd.append('resume_file', resumeFile); fd.append('jd', jd); fd.append('company', company);
-                const ctxRes = await fetch('/update_context', { method: 'POST', body: fd, headers: authHeaders() });
-                if (ctxRes.status === 401) { handleAuthFailure(); return; }
+                const err = await sendContext(resumeFile, jd, company);
+                if (err === 'auth') return;
+                if (err) { notify(err, 'error'); return; }
 
                 // Fetch Briefing
                 const res = await fetch('/api/generate-briefing', { method: 'POST', headers: authHeaders() });
@@ -4369,12 +4522,13 @@
         async function finishSetup() {
             const btn = document.getElementById('finishBtn'), resumeFile = document.getElementById('resumeInput').files[0];
             const jd = document.getElementById('jdInput').value, company = document.getElementById('companyInput').value;
-            if (!resumeFile || !jd || !company) { notify("Missing fields."); return; }
+            if ((!resumeFile && !loadSetup().resume) || !jd || !company) { notify("Missing fields."); return; }
             btn.innerText = "Starting..."; btn.disabled = true;
             try {
-                const fd = new FormData(); fd.append('resume_file', resumeFile); fd.append('jd', jd); fd.append('company', company);
-                const ctxRes = await fetch('/update_context', { method: 'POST', body: fd, headers: authHeaders() });
-                if (ctxRes.status === 401) { handleAuthFailure(); return; }
+                // The resume was already sent in step 2; send the saved text again (no second PDF upload)
+                const err = await sendContext(null, jd, company);
+                if (err === 'auth') return;
+                if (err) { notify(err, 'error'); btn.disabled = false; btn.innerText = "Start Interview Copilot"; return; }
                 document.getElementById('wizard-overlay').classList.add('hidden');
                 btn.innerText = "Start Interview Copilot"; btn.disabled = false;
                 showView('app-view');
@@ -4382,10 +4536,12 @@
         }
 
         function startApp() {
-            // Reset wizard inputs
+            // Pre-fill from the last setup on this device: no need to upload the resume or paste the JD again
+            const saved = loadSetup();
             document.getElementById('resumeInput').value = '';
-            document.getElementById('companyInput').value = '';
-            document.getElementById('jdInput').value = '';
+            document.getElementById('companyInput').value = saved.company || '';
+            document.getElementById('jdInput').value = saved.jd || '';
+            showSavedResumeNote('savedResumeNote', saved);
 
             // Fresh copilot session
             resetCopilotScreen();
@@ -4499,7 +4655,47 @@
             toggle.textContent = copilotRunning ? 'Stop' : 'Start';
         }
 
+        // Keep the answers of this tab, so a refresh shows them again (last 30, finished ones only)
+        const MAX_SAVED_ANSWERS = 30;
+        function saveAnswers() {
+            try {
+                const keep = answers.filter(a => a.text && a.text.trim()).slice(-MAX_SAVED_ANSWERS)
+                    .map(a => ({ question: a.question, text: a.text, skipped: !!a.skipped }));
+                sessionStorage.setItem(ANSWERS_KEY, JSON.stringify(keep));
+            } catch (e) { }
+        }
+
+        // After a refresh: back on the copilot screen with the earlier answers. If it was listening when the
+        // page reloaded, it starts listening again by itself, with the same "Listen to" setting.
+        function restoreCopilotScreen() {
+            let wasListening = false;
+            try { wasListening = sessionStorage.getItem(LISTENING_KEY) === '1'; sessionStorage.removeItem(LISTENING_KEY); } catch (e) { }
+            let saved = [];
+            try { saved = JSON.parse(sessionStorage.getItem(ANSWERS_KEY) || '[]'); } catch (e) { }
+            answers = (Array.isArray(saved) ? saved : [])
+                .filter(a => a && typeof a.text === 'string' && typeof a.question === 'string')
+                // New ids: the server numbers answers from 1 again in the next session
+                .map((a, i) => ({ id: `restored-${i}`, question: a.question, text: a.text, done: true, skipped: !!a.skipped }));
+            viewIndex = answers.length - 1;
+            showView('app-view');
+            renderCurrentAnswer();
+            companion.update();
+            setCopilotState('idle', answers.length ? 'Paused' : 'Ready');
+            if (wasListening) startCopilot({ auto: true });
+            else if (answers.length) showToast('You are back where you left off. Tap Start to keep listening.', 4500);
+        }
+
+        // Refreshing in the middle of an answer: keep what was written so far, and whether it was listening
+        window.addEventListener('pagehide', () => {
+            if (answers.length) saveAnswers();
+            try {
+                if (copilotRunning) sessionStorage.setItem(LISTENING_KEY, '1');
+                else sessionStorage.removeItem(LISTENING_KEY);
+            } catch (e) { }
+        });
+
         function resetCopilotScreen() {
+            try { sessionStorage.removeItem(ANSWERS_KEY); } catch (e) { }
             answers = [];
             viewIndex = -1;
             $('cpTranscript').innerHTML = '&nbsp;';
@@ -4690,6 +4886,7 @@
             if (!a) return;
             a.done = true;
             a.skipped = !!skipped;
+            saveAnswers();
             if (answers[viewIndex] === a) renderCurrentAnswer();
             if (copilotRunning) setCopilotState('listening', 'Listening');
             else companion.update();
@@ -4724,10 +4921,8 @@
                     break;
                 case 'notice':
                     showToast(data.message);
-                    if (awaitingAnswer) {   // e.g. a Regenerate the server turned down
-                        awaitingAnswer = false;
-                        if (copilotRunning) setCopilotState('listening', 'Listening');
-                    }
+                    awaitingAnswer = false;   // e.g. a Regenerate the server turned down, or nothing heard yet
+                    if (copilotRunning && !answers.some(a => !a.done)) setCopilotState('listening', 'Listening');
                     break;
                 case 'credits': setCreditBadge(data.remaining_seconds); break;
             }
@@ -4816,6 +5011,42 @@
             try { localStorage.setItem('audioSource', audioSourceSelect.value); } catch (e) { }
         });
 
+        // ----- When to answer: Smart / Answer all / On tap (remembered on this device) -----
+        const ANSWER_MODE_KEY = 'cpAnswerMode';
+        const ANSWER_MODES = {
+            smart: { hint: 'Answers real questions when the interviewer pauses. Skips small talk and your own voice.',
+                waiting: 'Listening for the first question…', toast: 'Smart: answers real questions on a pause' },
+            all: { hint: 'Answers everything it hears, every time the speaker pauses.',
+                waiting: 'Listening. Every question gets an answer…', toast: 'Answer all: answers everything it hears' },
+            manual: { hint: 'Listens quietly and never answers by itself. Tap Answer when you want help with the latest question.',
+                waiting: 'Listening quietly. Tap Answer when you want help.', toast: 'On tap: answers only when you tap Answer' },
+        };
+        let answerMode = 'smart';
+        try { const saved = localStorage.getItem(ANSWER_MODE_KEY); if (ANSWER_MODES[saved]) answerMode = saved; } catch (e) { }
+
+        function renderAnswerMode() {
+            document.querySelectorAll('.cp-mode').forEach(btn => {
+                const on = btn.dataset.mode === answerMode;
+                btn.classList.toggle('on', on);
+                btn.setAttribute('aria-checked', String(on));
+            });
+            document.querySelectorAll('[data-mode-hint]').forEach(el => { el.textContent = ANSWER_MODES[answerMode].hint; });
+            $('cpWaitingText').textContent = ANSWER_MODES[answerMode].waiting;
+            $('cpAnswerNow').textContent = answerMode === 'manual' ? 'Answer' : 'Answer now';
+        }
+
+        function setAnswerMode(mode) {
+            if (!ANSWER_MODES[mode] || mode === answerMode) return;
+            answerMode = mode;
+            try { localStorage.setItem(ANSWER_MODE_KEY, mode); } catch (e) { }
+            renderAnswerMode();
+            sendCommand('set_mode', { mode });   // takes effect immediately in a running session
+            if (copilotRunning) showToast(ANSWER_MODES[mode].toast);
+        }
+
+        document.querySelectorAll('.cp-mode').forEach(btn => btn.addEventListener('click', () => setAnswerMode(btn.dataset.mode)));
+        renderAnswerMode();
+
         async function captureMeetingAudio() {
             // Browsers require video in the request to show the tab/screen picker; we only use the audio.
             const stream = await navigator.mediaDevices.getDisplayMedia({
@@ -4831,12 +5062,17 @@
             return stream;
         }
 
-        async function startCopilot() {
+        // opts.auto: resuming by itself after a page refresh (no tap). The meeting-tab share needs a tap
+        // in every browser, so an automatic resume starts with the mic and offers a one-tap reconnect.
+        async function startCopilot(opts = {}) {
             if (copilotRunning) return;
+            const auto = !!opts.auto;
             const startBtn = $('startBtn');
             startBtn.disabled = true;
             $('cpToggle').disabled = true;
-            const wantMeeting = canCaptureMeeting && audioSourceSelect.value === 'mic+meeting';
+            const meetingChosen = canCaptureMeeting && audioSourceSelect.value === 'mic+meeting';
+            const wantMeeting = meetingChosen && !auto;
+            if (!auto) showResumePrompt(null);
             try {
                 // 1. Meeting audio first: browsers only allow the share picker right after a click
                 if (wantMeeting) {
@@ -4878,13 +5114,24 @@
                 processor.connect(silentGain);
                 silentGain.connect(audioContext.destination);
 
+                // Browsers may keep audio paused until the page is tapped (autoplay rules). Find out BEFORE
+                // connecting, so a blocked automatic resume never opens a billed session.
+                if (audioContext.state === 'suspended') {
+                    try { await Promise.race([audioContext.resume(), new Promise(r => setTimeout(r, 800))]); } catch (e) { }
+                }
+                if (audioContext.state !== 'running') throw new Error('NEEDS_TAP');
+
                 // 3. Connect to the server. Usage time is billed server-side while this is open.
+                // (If the server restarted since setup, give it back the saved resume/JD first.)
+                await restoreServerContext();
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const token = localStorage.getItem('token');
                 const socket = new WebSocket(`${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`);
                 ws = socket;
 
                 socket.onmessage = (e) => handleCopilotMessage(JSON.parse(e.data));
+                // Tell the server which answer mode to use as soon as the session opens
+                socket.onopen = () => socket.send(JSON.stringify({ type: 'set_mode', mode: answerMode }));
 
                 socket.onclose = (e) => {
                     // ws is set to null when the user stops the session themselves
@@ -4905,16 +5152,24 @@
                     if (ws && ws.readyState === WebSocket.OPEN) ws.send(e.data.pcm);
                 };
 
-                if (audioContext.state === 'suspended') await audioContext.resume();
                 copilotRunning = true;
                 keepScreenOn();
                 setCopilotState('listening', meetingStream ? 'Listening (mic + meeting)' : 'Listening');
                 updateCopilotLayout();
+                if (auto) {
+                    showToast(meetingChosen ? 'Listening again on the mic. Tap the button to add meeting audio.'
+                        : 'Listening again. Carry on.', 4000);
+                    if (meetingChosen) showResumePrompt('meeting');
+                }
             } catch (e) {
                 console.error(e);
                 const cancelledSharing = wantMeeting && !meetingStream;
                 forceStopApp();
-                if (e && e.message === 'NO_MEETING_AUDIO') {
+                if (auto || (e && e.message === 'NEEDS_TAP')) {
+                    // Couldn't resume by itself: one tap continues, with the same settings
+                    showResumePrompt('listen');
+                    setCopilotState('idle', 'Paused');
+                } else if (e && e.message === 'NO_MEETING_AUDIO') {
                     notify("No meeting audio was shared.\n\nWhen the share window opens, pick the browser tab with your Zoom/Meet/Teams call and turn on 'Also share tab audio' (or choose 'Entire screen' and turn on 'Also share system audio').\n\nOr switch 'Listen to' to 'Mic only'.");
                 } else if (cancelledSharing) {
                     notify("Screen sharing was cancelled.\n\nTo hear the interviewer, share the meeting tab with audio, or switch 'Listen to' to 'Mic only'.");
@@ -4927,8 +5182,48 @@
             }
         }
 
+        // Big one-tap button after a refresh: "Continue listening" or "Reconnect meeting audio"
+        function showResumePrompt(kind) {
+            const btn = $('cpResumeBtn');
+            if (!kind) { btn.classList.add('hidden'); return; }
+            btn.dataset.kind = kind;
+            btn.textContent = kind === 'meeting' ? '🖥️ Reconnect meeting audio' : '▶ Continue listening';
+            btn.classList.remove('hidden');
+        }
+
+        async function onResumePrompt() {
+            const kind = $('cpResumeBtn').dataset.kind;
+            showResumePrompt(null);
+            if (kind === 'meeting') await addMeetingAudio();
+            else await startCopilot();
+        }
+
+        // Add the meeting tab's audio to a session that is already listening on the mic
+        async function addMeetingAudio() {
+            if (!copilotRunning || !audioContext || !processor) { await startCopilot(); return; }
+            try {
+                setCopilotState('idle', 'Choose the meeting tab…');
+                meetingStream = await captureMeetingAudio();
+            } catch (e) {
+                meetingStream = null;
+                setCopilotState('listening', 'Listening');
+                showResumePrompt('meeting');
+                notify(e && e.message === 'NO_MEETING_AUDIO'
+                    ? "No meeting audio was shared. Pick the tab with your call and turn on 'Also share tab audio'."
+                    : 'Meeting audio was not added. Still listening on the mic.');
+                return;
+            }
+            meetingSource = audioContext.createMediaStreamSource(meetingStream);
+            meetingSource.connect(processor);
+            meetingStream.getAudioTracks()[0].addEventListener('ended', () => {
+                if (copilotRunning) showToast('Meeting audio stopped. Listening to the mic only.', 4000);
+            });
+            setCopilotState('listening', 'Listening (mic + meeting)');
+        }
+
         // Safe to call more than once
         function forceStopApp() {
+            showResumePrompt(null);
             if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
             const socket = ws;
             ws = null; // tells the onclose handler this stop was intentional
@@ -4952,6 +5247,7 @@
             releaseScreen();
             // Any answer still being written is finished as-is
             answers.forEach(a => { a.done = true; });
+            saveAnswers();
             setCopilotState('idle', 'Stopped');
             renderCurrentAnswer();
             updateCopilotLayout();
@@ -5119,6 +5415,13 @@
 
         function openMock() {
             stopMock();
+            // Pre-fill from the last setup on this device (same company/JD/resume as the copilot)
+            const saved = loadSetup();
+            if (!$('mkCompany').value) $('mkCompany').value = saved.company || '';
+            if (!$('mkRole').value) $('mkRole').value = saved.role || '';
+            if (!$('mkJd').value) $('mkJd').value = saved.jd || '';
+            $('mkResume').value = '';
+            showSavedResumeNote('mkSavedResume', saved);
             mkShow('mkSetup');
             mkSetState('idle', 'Mock interview');
             showView('mock-view');
@@ -5129,22 +5432,20 @@
             const company = $('mkCompany').value.trim(), role = $('mkRole').value.trim();
             const resume = $('mkResume').files[0], jd = $('mkJd').value.trim();
             if (!company || !role) { notify('Enter the company and the role you are interviewing for.', 'error'); return; }
-            if (!resume) { notify('Add your resume (PDF) so the questions fit your experience.', 'error'); return; }
+            if (!resume && !loadSetup().resume) { notify('Add your resume (PDF) so the questions fit your experience.', 'error'); return; }
 
-            await withBusyButton($('mkPrepareBtn'), 'Uploading…', async () => {
+            await withBusyButton($('mkPrepareBtn'), resume ? 'Uploading…' : 'Preparing…', async () => {
                 try {
-                    const fd = new FormData();
-                    fd.append('resume_file', resume);
-                    fd.append('jd', jd || `Role: ${role}`);
-                    fd.append('company', company);
-                    const res = await fetch('/update_context', { method: 'POST', body: fd, headers: authHeaders() });
-                    if (res.status === 401) { handleAuthFailure(); return; }
-                    const data = await res.json().catch(() => ({}));
-                    if (!res.ok || data.status === 'error') { notify(data.message || "Couldn't read your resume. Try another PDF.", 'error'); return; }
+                    // The server needs some job text; without a JD, the role stands in for it
+                    const err = await sendContext(resume, jd || `Role: ${role}`, company);
+                    if (err === 'auth') return;
+                    if (err) { notify(err, 'error'); return; }
+                    saveSetup({ jd, role });   // remember what the user typed, not the stand-in
                 } catch (e) {
                     notify("Can't reach PrapAI. Check your connection and try again.", 'error');
                     return;
                 }
+                showSavedResumeNote('mkSavedResume', loadSetup());
                 mkConnect(company, role, $('mkLength').value);
             });
         }
@@ -5485,6 +5786,13 @@
             try { await navigator.clipboard.writeText(lines.join('\n')); notify('Report copied', 'success'); }
             catch (e) { notify("Couldn't copy. Select the text and copy it instead.", 'error'); }
         }
+
+        // Save what the user types in the setup forms (survives a refresh)
+        saveDraftOnInput('companyInput', 'company');
+        saveDraftOnInput('jdInput', 'jd');
+        saveDraftOnInput('mkCompany', 'company');
+        saveDraftOnInput('mkRole', 'role');
+        saveDraftOnInput('mkJd', 'jd');
 
         window.onload = checkAuth;
     </script>
