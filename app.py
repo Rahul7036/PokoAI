@@ -566,31 +566,71 @@ def _parse_model_json(text: str):
             text = text.rstrip()[:-3]
     return json.loads(text)
 
+# Size caps for text the browser sends back (a resume is typically 3-10k characters)
+CONTEXT_MAX_RESUME_CHARS = 20000
+CONTEXT_MAX_JD_CHARS = 10000
+CONTEXT_MAX_COMPANY_CHARS = 200
+
+
 @app.post("/update_context")
 async def update_context(
     resume_file: UploadFile = File(None),
+    resume_text: str = Form(""),
     jd: str = Form(...),
     company: str = Form(""),
     current_user: models.User = Depends(get_current_user_detached),
 ):
+    """Set the resume / JD / company for this user.
+
+    The resume comes either as a PDF (first time) or as the text the browser saved from an earlier
+    upload (so users don't have to upload again after a refresh or on their next interview).
+    The extracted text is returned so the browser can keep it on the user's device.
+    """
     ctx = get_user_context(current_user.id)
 
-    # Process PDF Resume if provided
     if resume_file:
         try:
             content = await resume_file.read()
             text = await asyncio.to_thread(_extract_pdf_text, content)
-
-            ctx["resume"] = text
+            ctx["resume"] = text[:CONTEXT_MAX_RESUME_CHARS]
             logger.info(f"Resume PDF processed ({len(text)} chars) for user {current_user.id}")
         except Exception as e:
             logger.error(f"Error reading PDF: {e}")
-            return {"status": "error", "message": str(e)}
+            return {"status": "error", "message": "Couldn't read that PDF. Please try another file."}
+        if not ctx["resume"].strip():
+            return {"status": "error", "message": "That PDF has no readable text (it may be a scanned image). "
+                                                  "Please upload a text-based PDF."}
+    elif resume_text.strip():
+        ctx["resume"] = resume_text[:CONTEXT_MAX_RESUME_CHARS]
 
-    ctx["jd"] = jd
-    ctx["company"] = company
+    ctx["jd"] = jd[:CONTEXT_MAX_JD_CHARS]
+    ctx["company"] = company[:CONTEXT_MAX_COMPANY_CHARS]
     logger.info(f"Context updated for user {current_user.id}, company: {company}")
-    return {"status": "success", "message": "Context updated"}
+    return {"status": "success", "message": "Context updated",
+            "resume_text": ctx["resume"] if resume_file else None}
+
+
+class ContextRestore(BaseModel):
+    resume: str = ""
+    jd: str = ""
+    company: str = ""
+
+
+@app.post("/api/context/restore")
+def restore_context(data: ContextRestore, current_user: models.User = Depends(get_current_user_detached)):
+    """After a page refresh or a server restart: put back the setup the browser saved.
+
+    Only fills in what the server has lost; it never overwrites a resume the server already has.
+    """
+    ctx = get_user_context(current_user.id)
+    restored = False
+    if not ctx["resume"] and data.resume.strip():
+        ctx["resume"] = data.resume[:CONTEXT_MAX_RESUME_CHARS]
+        ctx["jd"] = data.jd[:CONTEXT_MAX_JD_CHARS]
+        ctx["company"] = data.company[:CONTEXT_MAX_COMPANY_CHARS]
+        restored = True
+        logger.info(f"Context restored from the browser for user {current_user.id}")
+    return {"restored": restored, "has_resume": bool(ctx["resume"])}
 
 @app.post("/api/generate-briefing")
 async def generate_briefing(current_user: models.User = Depends(get_current_user_detached)):
@@ -739,7 +779,9 @@ COPILOT_HISTORY_ANSWER_CHARS = 400
 COPILOT_REGENERATE_MAX_CHARS = 1000   # question text the client may send back with "regenerate"
 
 
-def build_answer_prompt(text, history, ctx, force=False, variant=False):
+def build_answer_prompt(text, history, ctx, force=False, variant=False, answer_all=False, from_conversation=False):
+    """force: the candidate tapped Answer. answer_all: "Answer all" mode (answer everything heard).
+    from_conversation: "On tap" mode, where the input is the recent conversation, not a single question."""
     history_text = ""
     if history:
         turns = history[-COPILOT_HISTORY_TURNS:]
@@ -747,9 +789,16 @@ def build_answer_prompt(text, history, ctx, force=False, variant=False):
         history_text = ("PREVIOUS CONVERSATION (most recent last; 'Suggested' is what you suggested "
                         "the candidate say):\n" + "\n".join(lines))
 
-    if force:
+    if from_conversation:
+        decide = ("The candidate tapped 'Answer'. LATEST SPEECH is the recent conversation: the interviewer and "
+                  "the candidate mixed, not labelled, oldest first. Find the MOST RECENT question or request from "
+                  "the interviewer and answer that one only. Never output NO_ANSWER.")
+    elif force:
         decide = ("The candidate tapped 'Answer now', so treat the input as an interviewer question "
                   "and ALWAYS answer it. Never output NO_ANSWER.")
+    elif answer_all:
+        decide = ("Answer mode is 'Answer all': treat the input as something the interviewer said and answer it. "
+                  "Output ONLY NO_ANSWER for empty noise or a meaningless fragment.")
     else:
         decide = ("If the input is NOT something the interviewer needs answered, output ONLY: NO_ANSWER\n"
                   "        That includes: noise or fragments; the candidate speaking (e.g. reading or\n"
@@ -864,6 +913,13 @@ def should_trigger_ai(text):
     if len(text.split()) < 2: # Ignore single words like "Hello", "Okay" unless they are questions?
         return False
     return True
+
+# Answer modes the copilot screen can choose: answer real questions on a pause ("smart", the default),
+# answer everything heard ("all"), or only when the candidate taps Answer ("manual")
+ANSWER_MODES = ("smart", "all", "manual")
+MANUAL_CONTEXT_SECONDS = 120          # "On tap": how far back the conversation is kept for the next tap
+MANUAL_CONTEXT_CHARS = 1500
+MANUAL_SHOWN_QUESTION_CHARS = 220     # how much of that conversation the answer card shows as the "question"
 
 # Custom WebSocket close codes the frontend understands
 WS_CLOSE_AUTH_FAILED = 4001
@@ -1026,9 +1082,27 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
     answer_tasks = set()
     answer_counter = 0
     last_heard_text = ""         # most recent speech, used by the "Answer now" button
+    answer_mode = "smart"        # smart | all | manual (set by the client with "set_mode")
+    heard_log = []               # manual mode: [(time, text)] heard since the last answer
 
     def recent_answers():
         return [a for _, a in conversation_history[-ECHO_RECENT_ANSWERS:]]
+
+    def remember_heard(text):
+        """Manual mode: keep the recent conversation (last MANUAL_CONTEXT_SECONDS / MANUAL_CONTEXT_CHARS)."""
+        now = time.monotonic()
+        heard_log.append((now, text))
+        while heard_log and (now - heard_log[0][0] > MANUAL_CONTEXT_SECONDS
+                             or sum(len(t) for _, t in heard_log) > MANUAL_CONTEXT_CHARS):
+            heard_log.pop(0)
+
+    def set_mode(mode):
+        nonlocal answer_mode
+        if mode not in ANSWER_MODES or mode == answer_mode:
+            return
+        answer_mode = mode
+        heard_log.clear()   # a fresh start in the new mode
+        logger.info(f"Answer mode '{mode}': {user_email}")
 
     def on_speech_result(transcript, is_final):
         """Runs on the event loop for every interim/final speech result."""
@@ -1057,28 +1131,55 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
         pending_since = None
         return segments
 
-    def start_answer(text, force=False, variant=False):
-        task = asyncio.create_task(answer_question(text, force, variant))
+    def start_answer(text, force=False, variant=False, answer_all=False, from_conversation=False, shown_question=None):
+        task = asyncio.create_task(answer_question(text, force, variant, answer_all, from_conversation, shown_question))
         answer_tasks.add(task)
         task.add_done_callback(answer_tasks.discard)
 
-    def flush_pending():
-        nonlocal last_heard_text
-        segments = take_pending_segments()
+    def without_echo(segments):
         # Drop segments where the candidate is reading the suggested answer out loud
         kept = [s for s in segments if not is_echo(s, recent_answers())]
         if len(kept) < len(segments):
             logger.info(f"Ignored {len(segments) - len(kept)} segment(s) repeating the suggested answer")
-        text = " ".join(kept).strip()
+        return kept
+
+    def flush_pending():
+        nonlocal last_heard_text
+        text = " ".join(without_echo(take_pending_segments())).strip()
         if text:
             last_heard_text = text
-        if stop_event.is_set() or not should_trigger_ai(text):
+        if stop_event.is_set():
             return
-        start_answer(text)
+        if answer_mode == "manual":
+            # "On tap": just remember it; nothing is answered until the candidate taps Answer
+            if text:
+                remember_heard(text)
+            return
+        if not should_trigger_ai(text):
+            return
+        start_answer(text, answer_all=(answer_mode == "all"))
 
     def answer_now():
         """'Answer now' button: answer what was just heard without waiting for a pause."""
         nonlocal last_heard_text
+        if answer_mode == "manual":
+            # Answer the latest interviewer question within the conversation heard since the last answer
+            pending = " ".join(without_echo(take_pending_segments())).strip()
+            if pending:
+                remember_heard(pending)
+            conversation = " ".join(t for _, t in heard_log).strip()
+            if not conversation:
+                asyncio.create_task(send_json({
+                    "type": "notice",
+                    "message": "Nothing new heard since the last answer. Wait for the question, then tap Answer.",
+                }))
+                return
+            heard_log.clear()
+            last_heard_text = conversation
+            shown = conversation if len(conversation) <= MANUAL_SHOWN_QUESTION_CHARS \
+                else "…" + conversation[-MANUAL_SHOWN_QUESTION_CHARS:]
+            start_answer(conversation, from_conversation=True, shown_question=shown)
+            return
         text = " ".join(take_pending_segments()).strip() or last_heard_text
         if not text:
             asyncio.create_task(send_json({
@@ -1117,8 +1218,10 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
         except Exception:
             pass  # client already gone
 
-    async def answer_question(text, force=False, variant=False):
+    async def answer_question(text, force=False, variant=False, answer_all=False, from_conversation=False,
+                              shown_question=None):
         nonlocal answer_counter
+        shown = shown_question or text   # what the answer card shows as the question
         answer_id = None
         started = False
         try:
@@ -1132,7 +1235,8 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
                 answer_id = answer_counter
                 await send_json({"type": "status", "message": "Listening..."})
 
-                prompt = build_answer_prompt(text, conversation_history, user_context, force=force, variant=variant)
+                prompt = build_answer_prompt(text, conversation_history, user_context, force=force, variant=variant,
+                                             answer_all=answer_all, from_conversation=from_conversation)
                 answer = ""
                 try:
                     async for piece in stream_copilot_answer(prompt):
@@ -1145,7 +1249,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
                             if "NO_ANSWER".startswith(head) or head.startswith("NO_ANSWER"):
                                 continue
                             started = True
-                            await send_json({"type": "answer_start", "id": answer_id, "question": text})
+                            await send_json({"type": "answer_start", "id": answer_id, "question": shown})
                             await send_json({"type": "answer_chunk", "id": answer_id, "text": answer})
                         else:
                             await send_json({"type": "answer_chunk", "id": answer_id, "text": piece})
@@ -1169,14 +1273,14 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
                         return
                     # Short answer that never got past the NO_ANSWER check
                     started = True
-                    await send_json({"type": "answer_start", "id": answer_id, "question": text})
+                    await send_json({"type": "answer_start", "id": answer_id, "question": shown})
                     await send_json({"type": "answer_chunk", "id": answer_id, "text": answer})
 
                 await send_json({"type": "answer_end", "id": answer_id})
-                if variant and conversation_history and conversation_history[-1][0] == text:
-                    conversation_history[-1] = (text, answer.strip())   # replace, don't repeat, the turn
+                if variant and conversation_history and conversation_history[-1][0] == shown:
+                    conversation_history[-1] = (shown, answer.strip())   # replace, don't repeat, the turn
                 else:
-                    conversation_history.append((text, answer.strip()))
+                    conversation_history.append((shown, answer.strip()))
         except asyncio.CancelledError:
             # Skipped by the user (or the session ended)
             if started:
@@ -1206,7 +1310,9 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
                 except Exception:
                     payload = {}
                 command = payload.get("type")
-                if command == "answer_now":
+                if command == "set_mode":
+                    set_mode(str(payload.get("mode") or ""))
+                elif command == "answer_now":
                     answer_now()
                 elif command == "regenerate":
                     regenerate(payload.get("question"))
