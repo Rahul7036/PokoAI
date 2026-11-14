@@ -2214,6 +2214,48 @@
         .cp-modes-footer { margin-bottom: 0.5rem; }
         .cp-modes-footer .cp-mode { height: 30px; font-size: 0.8rem; }
         .cp-mode-hint { font-size: 0.82rem; color: var(--cp-muted); margin: 0.45rem 0 1rem; line-height: 1.45; }
+
+        /* Audio test + interview report (panels inside the copilot screen) */
+        .cp-test-btn {
+            display: block; width: 100%; margin-top: 0.7rem; padding: 0.75rem 1rem; border-radius: 14px;
+            border: 1px solid var(--cp-border); background: transparent; color: var(--cp-text);
+            font-size: 0.95rem; font-weight: 700; cursor: pointer;
+        }
+        .cp-test-btn span { color: var(--cp-muted); font-weight: 500; font-size: 0.85rem; }
+        .cp-panel-sub { color: var(--cp-muted); line-height: 1.5; margin: -0.4rem 0 1.2rem; }
+        .cp-meter-row { display: grid; grid-template-columns: 7.5rem 1fr; align-items: center; gap: 0.75rem; margin-bottom: 0.8rem; font-weight: 600; font-size: 0.9rem; }
+        .cp-meter { height: 12px; border-radius: 999px; background: var(--cp-surface); border: 1px solid var(--cp-border); overflow: hidden; }
+        .cp-meter i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #34d399, #22d3ee); transition: width 80ms linear; }
+        .cp-test-words {
+            min-height: 4.5rem; padding: 0.8rem 0.9rem; margin-bottom: 1rem; border-radius: 12px;
+            background: var(--cp-surface); border: 1px solid var(--cp-border); line-height: 1.5;
+        }
+        .cp-test-words.empty { color: var(--cp-muted); font-style: italic; }
+        .cp-test-result { padding: 0.8rem 0.9rem; border-radius: 12px; margin-bottom: 1rem; line-height: 1.5; border: 1px solid; }
+        .cp-test-result.ok { border-color: rgba(34, 197, 94, 0.45); background: rgba(34, 197, 94, 0.08); }
+        .cp-test-result.warn { border-color: rgba(245, 158, 11, 0.45); background: rgba(245, 158, 11, 0.08); }
+        .cp-panel-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+        .cp-panel-actions .cp-btn { flex: 1 1 8rem; padding: 0 0.8rem; }
+        .cp-controls.stopped { grid-template-columns: 48px 1fr 48px; }
+        .cp-report { max-width: 680px; padding-bottom: 2rem; }
+        .cp-report h3 { font-size: 1rem; margin: 1.5rem 0 0.6rem; }
+        .cp-report-summary { line-height: 1.55; }
+        .cp-report-summary.busy { color: var(--cp-muted); font-style: italic; }
+        .cp-topics { display: grid; gap: 0.6rem; }
+        .cp-topic { padding: 0.75rem 0.9rem; border-radius: 12px; background: var(--cp-surface); border: 1px solid var(--cp-border); line-height: 1.45; }
+        .cp-topic b { display: block; margin-bottom: 0.2rem; }
+        .cp-topic .why { color: var(--cp-muted); font-size: 0.9rem; }
+        .cp-topic .tip { margin-top: 0.35rem; font-size: 0.9rem; }
+        .cp-rq { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.6rem; counter-reset: rq; }
+        .cp-rq > li { counter-increment: rq; padding: 0.75rem 0.9rem; border-radius: 12px; border: 1px solid var(--cp-border); line-height: 1.45; }
+        .cp-rq > li > .q::before { content: counter(rq) ". "; color: var(--cp-muted); }
+        .cp-rq .q { font-weight: 600; }
+        .cp-rq .star { display: inline-block; margin-left: 0.4rem; padding: 0.05rem 0.45rem; border-radius: 999px; font-size: 0.72rem; font-weight: 700; color: #082f49; background: var(--cp-blue); vertical-align: middle; }
+        .cp-rq details { margin-top: 0.4rem; color: var(--cp-muted); font-size: 0.92rem; }
+        .cp-rq summary { cursor: pointer; color: var(--cp-blue); }
+        .cp-rq details ul { margin: 0.4rem 0 0; padding-left: 1.1rem; }
+        .cp-rq details p { margin: 0.4rem 0 0; color: var(--cp-text); }
+        .cp-report .cp-panel-actions { margin-top: 1.5rem; }
         .cp-say-rest {
             display: block;
             margin-top: 0.45rem;
@@ -3623,7 +3665,7 @@
                 <ul>
                     <li><b>Phone next to the laptop</b>, with the call playing through the laptop's speakers.</li>
                     <li><b>Wearing headphones?</b> Open PrapAI on the laptop and choose "Mic + meeting audio".</li>
-                    <li><b>Do a 30-second test</b>: start listening and ask yourself "Tell me about yourself".</li>
+                    <li><b>Test your audio</b>: tap "Test my audio first" on the Copilot screen. It's free and uses no minutes.</li>
                     <li><b>Charge your phone</b> and set the text size with A&minus; / A+ so you can read at a glance.</li>
                 </ul>
             </section>
@@ -3680,6 +3722,45 @@
                     </div>
                     <p class="cp-mode-hint" data-mode-hint></p>
                     <button id="startBtn" class="cp-start" onclick="startCopilot()">Start listening</button>
+                    <button id="cpTestBtn" class="cp-test-btn" type="button" onclick="startAudioTest()">🎧 Test my audio first
+                        <span>· free, 15 seconds</span></button>
+                </section>
+
+                <!-- Free audio test: sound meters + the words Speech-to-Text heard (no minutes used) -->
+                <section id="cpTest" class="cp-idle hidden" aria-live="polite">
+                    <div class="cp-idle-title">Audio test</div>
+                    <p id="cpTestSub" class="cp-panel-sub"></p>
+                    <div class="cp-meter-row"><span>🎤 Your mic</span><div class="cp-meter"><i id="cpMeterMic"></i></div></div>
+                    <div class="cp-meter-row" id="cpMeterMeetingRow"><span>🖥️ Meeting</span><div class="cp-meter"><i id="cpMeterMeeting"></i></div></div>
+                    <div class="cp-label">Words it heard</div>
+                    <div id="cpTestWords" class="cp-test-words empty"></div>
+                    <div id="cpTestResult" class="cp-test-result hidden"></div>
+                    <div class="cp-panel-actions">
+                        <button id="cpTestStop" class="cp-btn" type="button" onclick="stopAudioTest(true)">Stop test</button>
+                        <button id="cpTestBack" class="cp-btn hidden" type="button" onclick="closeCpPanel()">Back</button>
+                        <button id="cpTestAgain" class="cp-btn hidden" type="button" onclick="startAudioTest()">Test again</button>
+                        <button id="cpTestStart" class="cp-btn cp-btn-primary hidden" type="button"
+                            onclick="closeCpPanel(); startCopilot()">Start listening</button>
+                    </div>
+                </section>
+
+                <!-- Interview report: what was asked, what to revise (after stopping) -->
+                <section id="cpReport" class="cp-idle cp-report hidden">
+                    <div class="cp-idle-title">Interview report</div>
+                    <p id="cpReportMeta" class="cp-panel-sub"></p>
+                    <div id="cpReportSummary" class="cp-report-summary"></div>
+                    <div id="cpReportTopicsWrap" class="hidden">
+                        <h3>📚 Revise these before the next round</h3>
+                        <div id="cpReportTopics" class="cp-topics"></div>
+                    </div>
+                    <h3>🗒️ Questions you were asked</h3>
+                    <ol id="cpReportQuestions" class="cp-rq"></ol>
+                    <div class="cp-panel-actions">
+                        <button class="cp-btn" type="button" onclick="closeCpPanel()">Back to answers</button>
+                        <button class="cp-btn" type="button" onclick="copyReport()">Copy</button>
+                        <button class="cp-btn" type="button" onclick="downloadReport()">Download</button>
+                        <button id="cpPracticeBtn" class="cp-btn cp-btn-primary" type="button" onclick="practiceInMock()">Practice in a mock</button>
+                    </div>
                 </section>
 
                 <!-- Listening, no answer yet -->
@@ -3729,6 +3810,7 @@
                 <div class="cp-controls">
                     <button id="cpPrev" class="cp-nav" onclick="showAnswer(viewIndex - 1)" aria-label="Previous answer">&lsaquo;</button>
                     <button id="cpSkip" class="cp-btn" onclick="skipAnswer()">Skip</button>
+                    <button id="cpReportBtn" class="cp-btn cp-btn-primary hidden" onclick="openReport()">📝 Interview report</button>
                     <button id="cpAnswerNow" class="cp-btn cp-btn-primary" onclick="answerNow()">Answer now</button>
                     <button id="cpNext" class="cp-nav" onclick="showAnswer(viewIndex + 1)" aria-label="Next answer">&rsaquo;</button>
                 </div>
@@ -3763,6 +3845,7 @@
                         <label>Company <input type="text" id="mkCompany" placeholder="e.g. Amazon, TCS, Flipkart" maxlength="80"></label>
                         <label>Role <input type="text" id="mkRole" placeholder="e.g. Backend Engineer (SDE-2)" maxlength="80"></label>
                         <p id="mkSavedResume" class="mk-note hidden" style="margin: 0;"></p>
+                        <p id="mkPracticeNote" class="mk-note hidden" style="margin: 0;"></p>
                         <label>Resume (PDF) <input type="file" id="mkResume" accept=".pdf"></label>
                         <label>Job description <span class="mk-opt">(optional, but questions get better)</span>
                             <textarea id="mkJd" placeholder="Paste the job description here"></textarea></label>
@@ -4018,6 +4101,7 @@
             const currentView = document.querySelector('.view.active');
             if (currentView && currentView.id === 'app-view' && viewId !== 'app-view') {
                 if (typeof forceStopApp === 'function') forceStopApp();
+                if (typeof stopAudioTest === 'function') stopAudioTest();
             }
             if (currentView && currentView.id === 'mock-view' && viewId !== 'mock-view') {
                 if (typeof stopMock === 'function') stopMock();
@@ -4563,6 +4647,11 @@
         let toastTimer = null;
         let wakeLock = null;
         let awaitingAnswer = false;   // a Regenerate request is on its way: block repeats until it lands
+        let cpPanel = null;           // 'test' | 'report' | null: a panel shown instead of the answers (when stopped)
+        let reportCache = null;       // { key, data }: the last report, so reopening it costs no AI call
+        let pendingPracticeCount = 0; // questions sent to the next mock interview from the report
+        const audioTest = { ws: null, ctx: null, streams: [], raf: 0, timer: 0, running: false,
+            finals: '', interim: '', micPeak: 0, meetingPeak: 0, withMeeting: false, error: '' };
 
         // ----- Floating companion (static/companion.js) -----
         // It reads the same `answers` array as this screen, so it adds no API calls of its own.
@@ -4642,12 +4731,17 @@
         // ----- Screen layout -----
         function updateCopilotLayout() {
             const hasAnswers = answers.length > 0;
-            $('cpIdle').classList.toggle('hidden', copilotRunning || hasAnswers);
+            const panel = copilotRunning ? null : cpPanel;   // the test/report panels only show while stopped
+            $('cpTest').classList.toggle('hidden', panel !== 'test');
+            $('cpReport').classList.toggle('hidden', panel !== 'report');
+            $('cpIdle').classList.toggle('hidden', !!panel || copilotRunning || hasAnswers);
             $('cpWaiting').classList.toggle('hidden', !copilotRunning || hasAnswers);
-            $('cpCard').classList.toggle('hidden', !hasAnswers);
-            $('cpFooter').classList.toggle('hidden', !copilotRunning && !hasAnswers);
+            $('cpCard').classList.toggle('hidden', !!panel || !hasAnswers);
+            $('cpFooter').classList.toggle('hidden', !!panel || (!copilotRunning && !hasAnswers));
             $('cpSkip').classList.toggle('hidden', !copilotRunning);
             $('cpAnswerNow').classList.toggle('hidden', !copilotRunning);
+            $('cpReportBtn').classList.toggle('hidden', copilotRunning || !answers.some(a => a.done && String(a.question || '').trim()));
+            document.querySelector('#cpFooter .cp-controls').classList.toggle('stopped', !copilotRunning);
 
             const toggle = $('cpToggle');
             toggle.classList.toggle('hidden', !copilotRunning && !hasAnswers);
@@ -4696,6 +4790,9 @@
 
         function resetCopilotScreen() {
             try { sessionStorage.removeItem(ANSWERS_KEY); } catch (e) { }
+            stopAudioTest();
+            cpPanel = null;
+            reportCache = null;
             answers = [];
             viewIndex = -1;
             $('cpTranscript').innerHTML = '&nbsp;';
@@ -4862,6 +4959,10 @@
 
         // ----- Messages from the server -----
         function findAnswer(id) { return answers.find(a => a.id === id); }
+        // The server numbers answers from 1 in every session. Stop + Start keeps the earlier answers on screen,
+        // so each session gets its own prefix; otherwise answer 1 of the new session would land in the old answer 1.
+        let copilotSessionNo = 0;
+        const sessionAnswerId = (id) => `s${copilotSessionNo}-${id}`;
 
         function onAnswerStart(id, question) {
             const followLatest = viewIndex === answers.length - 1;   // were we looking at the newest one?
@@ -4910,10 +5011,10 @@
                         else companion.update();
                     }
                     break;
-                case 'answer_start': onAnswerStart(data.id, data.question); break;
-                case 'answer_chunk': onAnswerChunk(data.id, data.text); break;
-                case 'answer_end': onAnswerEnd(data.id, false); break;
-                case 'answer_skipped': onAnswerEnd(data.id, true); break;
+                case 'answer_start': onAnswerStart(sessionAnswerId(data.id), data.question); break;
+                case 'answer_chunk': onAnswerChunk(sessionAnswerId(data.id), data.text); break;
+                case 'answer_end': onAnswerEnd(sessionAnswerId(data.id), false); break;
+                case 'answer_skipped': onAnswerEnd(sessionAnswerId(data.id), true); break;
                 case 'answer':   // older server format
                     onAnswerStart(`legacy-${Date.now()}`, data.question);
                     onAnswerChunk(answers[answers.length - 1].id, data.answer);
@@ -4940,12 +5041,17 @@
 
         function skipAnswer() {
             sendCommand('skip');
-            showToast('Skipped');
+            showToast(answerMode === 'manual' ? 'Cleared. Tap Answer later to use only what comes next.' : 'Skipped');
         }
 
         function toggleCopilot() {
-            if (copilotRunning) forceStopApp();
-            else startCopilot();
+            if (copilotRunning) {
+                forceStopApp();
+                if (reportItems().length) showToast('Interview over? Tap 📝 Interview report to see what was asked and what to revise.', 5000);
+            } else {
+                closeCpPanel();
+                startCopilot();
+            }
         }
 
         // --- AUDIO CAPTURE ---
@@ -5018,7 +5124,7 @@
                 waiting: 'Listening for the first question…', toast: 'Smart: answers real questions on a pause' },
             all: { hint: 'Answers everything it hears, every time the speaker pauses.',
                 waiting: 'Listening. Every question gets an answer…', toast: 'Answer all: answers everything it hears' },
-            manual: { hint: 'Listens quietly and never answers by itself. Tap Answer when you want help with the latest question.',
+            manual: { hint: 'Listens quietly and never answers by itself. Tap Answer for help with the latest question, using everything heard since your last answer. Skip clears what was heard.',
                 waiting: 'Listening quietly. Tap Answer when you want help.', toast: 'On tap: answers only when you tap Answer' },
         };
         let answerMode = 'smart';
@@ -5066,6 +5172,8 @@
         // in every browser, so an automatic resume starts with the mic and offers a one-tap reconnect.
         async function startCopilot(opts = {}) {
             if (copilotRunning) return;
+            stopAudioTest();   // frees the mic (the test and the copilot can't both use it)
+            cpPanel = null;
             const auto = !!opts.auto;
             const startBtn = $('startBtn');
             startBtn.disabled = true;
@@ -5127,6 +5235,7 @@
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const token = localStorage.getItem('token');
                 const socket = new WebSocket(`${protocol}//${window.location.host}/ws?token=${encodeURIComponent(token)}`);
+                copilotSessionNo++;   // new answer numbering (see sessionAnswerId)
                 ws = socket;
 
                 socket.onmessage = (e) => handleCopilotMessage(JSON.parse(e.data));
@@ -5251,6 +5360,351 @@
             setCopilotState('idle', 'Stopped');
             renderCurrentAnswer();
             updateCopilotLayout();
+        }
+
+        // =====================================================================
+        // PANELS: free audio test + interview report (shown in place of the answers while stopped)
+        // =====================================================================
+        function showCpPanel(name) {
+            cpPanel = name;
+            updateCopilotLayout();
+            $('app-view').querySelector('.cp-main').scrollTop = 0;
+        }
+
+        function closeCpPanel() {
+            stopAudioTest();
+            cpPanel = null;
+            renderCurrentAnswer();
+            updateCopilotLayout();
+        }
+
+        // ----- Audio test: meters show sound arriving; Speech-to-Text shows the words (no minutes used) -----
+        const AUDIO_TEST_SOUND_LEVEL = 0.015;   // RMS above this counts as "sound reached it"
+
+        function setTestButtons(running) {
+            $('cpTestStop').classList.toggle('hidden', !running);
+            ['cpTestBack', 'cpTestAgain', 'cpTestStart'].forEach(id => $(id).classList.toggle('hidden', running));
+        }
+
+        function renderTestWords() {
+            const text = `${audioTest.finals} ${audioTest.interim}`.trim();
+            const el = $('cpTestWords');
+            el.classList.toggle('empty', !text);
+            el.textContent = text || (audioTest.running ? 'Waiting for speech…' : 'Nothing heard.');
+        }
+
+        async function startAudioTest() {
+            if (copilotRunning || audioTest.running) return;
+            stopAudioTest();
+            const withMeeting = canCaptureMeeting && audioSourceSelect.value === 'mic+meeting';
+            Object.assign(audioTest, { running: true, finals: '', interim: '', micPeak: 0, meetingPeak: 0,
+                withMeeting, error: '' });
+            showCpPanel('test');
+            $('cpMeterMeetingRow').classList.toggle('hidden', !withMeeting);
+            $('cpMeterMic').style.width = $('cpMeterMeeting').style.width = '0';
+            $('cpTestResult').classList.add('hidden');
+            setTestButtons(true);
+            renderTestWords();
+            $('cpTestSub').textContent = withMeeting
+                ? 'Choose your meeting tab and turn on "Also share tab audio"…'
+                : 'Getting the microphone…';
+            try {
+                // Meeting tab first: the browser only shows the share picker right after a tap
+                let meeting = null;
+                if (withMeeting) {
+                    meeting = await captureMeetingAudio();
+                    audioTest.streams.push(meeting);
+                }
+                const mic = await navigator.mediaDevices.getUserMedia({
+                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                });
+                audioTest.streams.push(mic);
+                if (!audioTest.running) { stopAudioTest(); return; }   // stopped while the browser was asking
+
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                audioTest.ctx = ctx;
+                await ctx.audioWorklet.addModule(getPcmWorkletUrl());
+                const node = new AudioWorkletNode(ctx, 'pcm-16k', {
+                    numberOfInputs: 1, numberOfOutputs: 1,
+                    channelCount: 1, channelCountMode: 'explicit', channelInterpretation: 'speakers',
+                });
+                const meters = [];
+                const addSource = (stream, meterId, peakKey) => {
+                    const src = ctx.createMediaStreamSource(stream);
+                    const analyser = ctx.createAnalyser();
+                    analyser.fftSize = 1024;
+                    src.connect(node);
+                    src.connect(analyser);
+                    meters.push({ analyser, el: $(meterId), peakKey, buf: new Float32Array(analyser.fftSize) });
+                };
+                addSource(mic, 'cpMeterMic', 'micPeak');
+                if (meeting) addSource(meeting, 'cpMeterMeeting', 'meetingPeak');
+                const silent = ctx.createGain();
+                silent.gain.value = 0;
+                node.connect(silent);
+                silent.connect(ctx.destination);
+                if (ctx.state === 'suspended') { try { await ctx.resume(); } catch (e) { } }
+
+                const tick = () => {
+                    meters.forEach(m => {
+                        m.analyser.getFloatTimeDomainData(m.buf);
+                        let sum = 0;
+                        for (let i = 0; i < m.buf.length; i++) sum += m.buf[i] * m.buf[i];
+                        const rms = Math.sqrt(sum / m.buf.length);
+                        audioTest[m.peakKey] = Math.max(audioTest[m.peakKey], rms);
+                        m.el.style.width = `${Math.min(100, Math.round(rms * 500))}%`;
+                    });
+                    audioTest.raf = requestAnimationFrame(tick);
+                };
+                tick();
+
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const token = localStorage.getItem('token') || '';
+                const socket = new WebSocket(`${protocol}//${window.location.host}/ws/audiotest?token=${encodeURIComponent(token)}`);
+                audioTest.ws = socket;
+                node.port.onmessage = (e) => { if (socket.readyState === WebSocket.OPEN) socket.send(e.data.pcm); };
+                socket.onmessage = (e) => {
+                    let data = {};
+                    try { data = JSON.parse(e.data); } catch (err) { }
+                    if (data.type === 'ready') startTestCountdown(data.seconds || 15);
+                    else if (data.type === 'transcript') {
+                        if (data.is_final) { audioTest.finals = `${audioTest.finals} ${data.transcript}`.trim(); audioTest.interim = ''; }
+                        else audioTest.interim = data.transcript;
+                        renderTestWords();
+                    } else if (data.type === 'error') audioTest.error = data.message || '';
+                    else if (data.type === 'done') finishAudioTest();
+                };
+                socket.onclose = (e) => {
+                    if (audioTest.ws !== socket) return;
+                    if (e.code === 4001) { stopAudioTest(); handleAuthFailure(); return; }
+                    finishAudioTest();
+                };
+            } catch (e) {
+                console.error(e);
+                const sharedNothing = withMeeting && audioTest.streams.length === 0;
+                releaseTestAudio();
+                if (!audioTest.running) return;   // the user already left the test
+                const msg = e && e.message === 'NO_MEETING_AUDIO'
+                    ? 'No meeting audio was shared. Pick the tab with your call and turn on "Also share tab audio".'
+                    : sharedNothing
+                        ? 'Screen sharing was cancelled, so the meeting audio could not be tested.'
+                        : 'Could not use the microphone. Allow microphone access for this site and try again.';
+                audioTest.error = msg;
+                finishAudioTest();
+            }
+        }
+
+        function startTestCountdown(seconds) {
+            let left = seconds;
+            const say = audioTest.withMeeting
+                ? 'Say something, and play a few seconds of sound in the meeting tab.'
+                : canCaptureMeeting
+                    ? 'Say "Tell me about yourself" out loud.'
+                    : 'Play an interview video on your laptop speakers (or say something) — just like the real call.';
+            const show = () => { $('cpTestSub').textContent = `${say} ${left}s left.`; };
+            show();
+            clearInterval(audioTest.timer);
+            audioTest.timer = setInterval(() => { left = Math.max(0, left - 1); show(); }, 1000);
+        }
+
+        // Stop capturing. userStopped: the user tapped "Stop test" (the server then sends the last words + done)
+        function stopAudioTest(userStopped = false) {
+            if (userStopped && audioTest.ws && audioTest.ws.readyState === WebSocket.OPEN) {
+                try { audioTest.ws.send(JSON.stringify({ type: 'stop' })); } catch (e) { }
+                releaseTestAudio();
+                $('cpTestSub').textContent = 'Checking the last words…';
+                return;
+            }
+            const socket = audioTest.ws;
+            audioTest.ws = null;
+            if (socket) { try { socket.close(); } catch (e) { } }
+            releaseTestAudio();
+            audioTest.running = false;
+        }
+
+        function releaseTestAudio() {
+            cancelAnimationFrame(audioTest.raf);
+            clearInterval(audioTest.timer);
+            audioTest.streams.forEach(s => s.getTracks().forEach(t => t.stop()));
+            audioTest.streams = [];
+            if (audioTest.ctx) { audioTest.ctx.close().catch(() => { }); audioTest.ctx = null; }
+            if ($('cpMeterMic')) $('cpMeterMic').style.width = $('cpMeterMeeting').style.width = '0';
+        }
+
+        // Explain the result in plain words
+        function audioTestVerdict(t) {
+            if (t.error) return { ok: false, text: t.error };
+            const words = `${t.finals} ${t.interim}`.trim();
+            const micSound = t.micPeak >= AUDIO_TEST_SOUND_LEVEL;
+            const meetingSound = t.meetingPeak >= AUDIO_TEST_SOUND_LEVEL;
+            if (words && t.withMeeting && !meetingSound) {
+                return { ok: false, text: '⚠️ Your mic works, but no sound came from the meeting tab. Make sure the call is playing in the tab you shared and "Also share tab audio" was on.' };
+            }
+            if (words) return { ok: true, text: '✅ All good. PrapAI can hear and understand you. You\'re ready to start.' };
+            if (!micSound && !meetingSound) {
+                return { ok: false, text: '⚠️ No sound reached PrapAI. Check that the browser is allowed to use the microphone and that the right mic is selected in your device settings.' };
+            }
+            return { ok: false, text: '⚠️ Sound arrived, but no clear words. Speak a little louder, or move the phone closer to the laptop speakers, and test again.' };
+        }
+
+        function finishAudioTest() {
+            if (!audioTest.running) return;
+            const socket = audioTest.ws;
+            audioTest.ws = null;
+            if (socket) { try { socket.close(); } catch (e) { } }
+            releaseTestAudio();
+            audioTest.running = false;
+            audioTest.interim = audioTest.interim.trim();
+            renderTestWords();
+            const verdict = audioTestVerdict(audioTest);
+            const el = $('cpTestResult');
+            el.textContent = verdict.text;
+            el.className = `cp-test-result ${verdict.ok ? 'ok' : 'warn'}`;
+            $('cpTestSub').textContent = 'Test finished. No minutes were used.';
+            setTestButtons(false);
+        }
+
+        // ----- Interview report -----
+        // Every question of this session (skipped ones too: the interviewer still asked them)
+        function reportItems() {
+            return answers.filter(a => a.done && String(a.question || '').trim()).map(a => {
+                const p = a.skipped ? null : parseAnswer(a.text);
+                return { question: a.question.trim(), say: p ? p.say : '', points: p ? p.points : [] };
+            });
+        }
+
+        function reportKey(items) { return JSON.stringify(items.map(i => [i.question, i.say])); }
+
+        async function openReport() {
+            const items = reportItems();
+            if (!items.length) { showToast('No questions yet. The report fills in as the interviewer asks.'); return; }
+            showCpPanel('report');
+            const key = reportKey(items);
+            if (reportCache && reportCache.key === key) { renderReport(items, reportCache.data); return; }
+            renderReport(items, null);
+            try {
+                const res = await fetch('/api/copilot/report', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                    body: JSON.stringify({ items: items.map(i => ({ question: i.question, say: i.say })) }),
+                });
+                if (res.status === 401) { handleAuthFailure(); return; }
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.detail || 'Couldn\'t write the report right now.');
+                reportCache = { key, data };
+                if (cpPanel === 'report') renderReport(items, data);
+            } catch (e) {
+                if (cpPanel !== 'report') return;
+                const msg = e && e.message && !/fetch/i.test(e.message) ? e.message : 'Can\'t reach PrapAI. Check your connection.';
+                renderReport(items, { error: msg });
+            }
+        }
+
+        // data: null while loading, { error } on failure, or the server's report
+        function renderReport(items, data) {
+            const ok = data && !data.error;
+            const company = (loadSetup().company || '').trim();
+            const date = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+            $('cpReportMeta').textContent = [`${items.length} question${items.length === 1 ? '' : 's'}`, company, date]
+                .filter(Boolean).join(' · ');
+
+            const summary = $('cpReportSummary');
+            summary.classList.toggle('busy', !ok);
+            if (!data) summary.textContent = 'Writing your report… (a few seconds)';
+            else if (data.error) {
+                summary.innerHTML = `${escapeHtml(data.error)} <button class="cp-btn" style="height:36px;padding:0 0.8rem;margin-left:0.4rem" onclick="reportCache=null;openReport()">Try again</button>`;
+            } else summary.textContent = data.summary || '';
+
+            const topics = ok ? (data.topics || []) : [];
+            $('cpReportTopicsWrap').classList.toggle('hidden', !topics.length);
+            $('cpReportTopics').innerHTML = topics.map(t => `
+                <div class="cp-topic"><b>${escapeHtml(t.topic)}</b>
+                    ${t.why ? `<div class="why">${escapeHtml(t.why)}</div>` : ''}
+                    ${t.tip ? `<div class="tip">👉 ${escapeHtml(t.tip)}</div>` : ''}</div>`).join('');
+
+            const practice = new Set(ok ? (data.practice || []) : []);
+            $('cpReportQuestions').innerHTML = items.map((item, i) => {
+                const q = (ok && data.questions && data.questions[i]) || item.question;
+                const star = practice.has(i) ? '<span class="star">Practise this</span>' : '';
+                const answer = item.say ? `<details><summary>Suggested answer</summary>
+                        <p>${safeInline(item.say)}</p>
+                        ${item.points.length ? `<ul>${item.points.map(p => `<li>${safeInline(p)}</li>`).join('')}</ul>` : ''}
+                    </details>` : '';
+                return `<li><div class="q">${escapeHtml(q)}${star}</div>${answer}</li>`;
+            }).join('');
+            $('cpPracticeBtn').disabled = !ok;
+        }
+
+        function reportQuestions(items, data) {
+            return items.map((item, i) => (data && data.questions && data.questions[i]) || item.question);
+        }
+
+        function reportText() {
+            const items = reportItems();
+            const data = reportCache && reportCache.key === reportKey(items) ? reportCache.data : null;
+            const plain = (t) => String(t || '').replace(/\*\*|__|`/g, '');
+            const lines = [`PrapAI interview report — ${$('cpReportMeta').textContent}`, ''];
+            if (data && data.summary) lines.push(data.summary, '');
+            if (data && data.topics && data.topics.length) {
+                lines.push('REVISE THESE BEFORE THE NEXT ROUND');
+                data.topics.forEach((t, i) => {
+                    lines.push(`${i + 1}. ${t.topic}${t.why ? ` — ${t.why}` : ''}`);
+                    if (t.tip) lines.push(`   Tip: ${t.tip}`);
+                });
+                lines.push('');
+            }
+            lines.push('QUESTIONS YOU WERE ASKED');
+            const questions = reportQuestions(items, data);
+            items.forEach((item, i) => {
+                lines.push(`${i + 1}. ${questions[i]}`);
+                if (item.say) lines.push(`   Suggested answer: ${plain(item.say)}`);
+                item.points.forEach(p => lines.push(`   - ${plain(p)}`));
+            });
+            return lines.join('\n');
+        }
+
+        async function copyReport() {
+            try { await navigator.clipboard.writeText(reportText()); showToast('Report copied'); }
+            catch (e) { showToast('Couldn\'t copy. Try Download instead.'); }
+        }
+
+        function downloadReport() {
+            const blob = new Blob([reportText()], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `PrapAI-interview-report-${new Date().toISOString().slice(0, 10)}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        // Send the questions worth practising to the next mock interview, then open the mock setup
+        async function practiceInMock() {
+            const items = reportItems();
+            const data = reportCache && reportCache.key === reportKey(items) ? reportCache.data : null;
+            if (!data) return;
+            const questions = reportQuestions(items, data);
+            const picked = (data.practice && data.practice.length ? data.practice : items.map((_, i) => i))
+                .slice(0, 5).map(i => questions[i]).filter(Boolean);
+            await withBusyButton($('cpPracticeBtn'), 'Opening…', async () => {
+                try {
+                    const res = await fetch('/api/mock/practice', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                        body: JSON.stringify({ questions: picked }),
+                    });
+                    if (res.status === 401) { handleAuthFailure(); return; }
+                    if (!res.ok) throw new Error();
+                    pendingPracticeCount = (await res.json()).saved || 0;
+                } catch (e) {
+                    showToast('Couldn\'t set up the practice. Please try again.');
+                    return;
+                }
+                cpPanel = null;
+                openMock();
+            });
         }
 
         function showResumeReview() {
@@ -5422,6 +5876,9 @@
             if (!$('mkJd').value) $('mkJd').value = saved.jd || '';
             $('mkResume').value = '';
             showSavedResumeNote('mkSavedResume', saved);
+            $('mkPracticeNote').textContent = pendingPracticeCount
+                ? `🔁 This mock will include ${pendingPracticeCount} question${pendingPracticeCount === 1 ? '' : 's'} from your real interview.` : '';
+            $('mkPracticeNote').classList.toggle('hidden', !pendingPracticeCount);
             mkShow('mkSetup');
             mkSetState('idle', 'Mock interview');
             showView('mock-view');
@@ -5453,6 +5910,7 @@
         function mkConnect(company, role, length) {
             stopMock();
             mk.stopping = false; mk.finished = false; mk.company = company;
+            pendingPracticeCount = 0;   // the server uses the practice questions in this mock
             $('mkPrepText').textContent = 'Getting ready…';
             mkShow('mkPreparing');
             mkSetState('thinking', 'Preparing…');
