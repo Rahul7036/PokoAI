@@ -678,6 +678,109 @@ async def generate_briefing(current_user: models.User = Depends(get_current_user
         logger.error(f"Briefing failed: {e}")
         return {"status": "error", "message": str(e)}
 
+# ---------- Interview report (after a copilot session) ----------
+REPORT_MAX_ITEMS = 30
+REPORT_QUESTION_CHARS = 400
+REPORT_SAY_CHARS = 500
+REPORT_DAILY_LIMIT = 30          # report requests per user per day (each is one AI call)
+PRACTICE_MAX_QUESTIONS = 5
+DAILY_USAGE = {}                 # (kind, user_id) -> (date, count); in memory, single process
+
+
+def use_daily_allowance(kind: str, user_id: int, limit: int) -> bool:
+    """Count one use of a free feature. False once today's limit is reached."""
+    today = datetime.utcnow().date()
+    day, count = DAILY_USAGE.get((kind, user_id), (today, 0))
+    if day != today:
+        count = 0
+    if count >= limit:
+        return False
+    DAILY_USAGE[(kind, user_id)] = (today, count + 1)
+    return True
+
+
+class ReportItem(BaseModel):
+    question: str
+    say: str = ""
+
+
+class SessionReportRequest(BaseModel):
+    items: list[ReportItem]
+
+
+@app.post("/api/copilot/report")
+async def copilot_report(data: SessionReportRequest, current_user: models.User = Depends(get_current_user_detached)):
+    items = [i for i in data.items if i.question.strip()][-REPORT_MAX_ITEMS:]
+    if not items:
+        raise HTTPException(status_code=400, detail="No questions to report on yet.")
+    if not ai_client:
+        raise HTTPException(status_code=503, detail="AI is not available right now.")
+    if not use_daily_allowance("report", current_user.id, REPORT_DAILY_LIMIT):
+        raise HTTPException(status_code=429, detail="You've made a lot of reports today. Please try again tomorrow.")
+
+    ctx = get_user_context(current_user.id)
+    listing = "\n".join(
+        f"{n}. QUESTION: {i.question.strip()[:REPORT_QUESTION_CHARS]}\n   SUGGESTED ANSWER: {i.say.strip()[:REPORT_SAY_CHARS] or '(none)'}"
+        for n, i in enumerate(items, 1))
+    prompt = f"""
+        You are a friendly interview coach. A candidate just finished a REAL job interview. Below are the
+        questions the interviewer asked (as heard by speech recognition, so some contain extra chatter
+        before the actual question) and the short answer we suggested for each.
+
+        COMPANY: {ctx.get('company') or 'not given'}
+        JOB DESCRIPTION: {(ctx.get('jd') or 'not given')[:COPILOT_JD_CHARS]}
+
+        QUESTIONS:
+        {listing}
+
+        Write a short report in simple English for a nervous candidate:
+        - "summary": 1-2 sentences on what this interview focused on (e.g. "Mostly Python basics and one
+          system design question, plus HR at the end."). No scores, no judging the candidate.
+        - "clean_questions": for EVERY numbered question above, in the same order, the actual question in
+          one clean sentence (drop chatter and filler). Exactly {len(items)} entries.
+        - "topics": the 3 topics most worth revising before the next round, based on these questions and
+          the job description. Each has "topic" (2-5 words), "why" (one sentence: which question showed it)
+          and "tip" (one concrete thing to study or practise, max 20 words).
+        - "practice": the numbers (1-based) of up to {PRACTICE_MAX_QUESTIONS} questions that are hardest
+          or most likely to come again, best first. Skip small talk.
+
+        OUTPUT JSON ONLY:
+        {{"summary": "...", "clean_questions": ["..."], "topics": [{{"topic": "...", "why": "...", "tip": "..."}}], "practice": [1]}}
+        """
+    try:
+        result = _parse_model_json(await generate_text_reliably(prompt, json_mode=True))
+    except Exception as e:
+        logger.error(f"Copilot report failed for {current_user.email}: {e}")
+        raise HTTPException(status_code=502, detail="Couldn't write the report right now. Please try again.")
+
+    clean = [str(q or "").strip()[:REPORT_QUESTION_CHARS] for q in (result.get("clean_questions") or [])]
+    if len(clean) != len(items):
+        clean = [""] * len(items)
+    questions = [c or i.question.strip()[:REPORT_QUESTION_CHARS] for c, i in zip(clean, items)]
+    topics = []
+    for t in (result.get("topics") or [])[:3]:
+        if isinstance(t, dict) and str(t.get("topic") or "").strip():
+            topics.append({k: str(t.get(k) or "").strip()[:300] for k in ("topic", "why", "tip")})
+    practice = []
+    for n in result.get("practice") or []:
+        if isinstance(n, int) and 1 <= n <= len(items) and (n - 1) not in practice:
+            practice.append(n - 1)
+    return {"summary": str(result.get("summary") or "").strip()[:500], "questions": questions,
+            "topics": topics, "practice": practice[:PRACTICE_MAX_QUESTIONS]}
+
+
+class PracticeRequest(BaseModel):
+    questions: list[str]
+
+
+@app.post("/api/mock/practice")
+def set_mock_practice(data: PracticeRequest, current_user: models.User = Depends(get_current_user_detached)):
+    """Questions from a real interview to include in the next mock interview (used once)."""
+    questions = [q.strip()[:REPORT_QUESTION_CHARS] for q in data.questions if q.strip()][:PRACTICE_MAX_QUESTIONS]
+    get_user_context(current_user.id)["practice"] = questions
+    return {"saved": len(questions)}
+
+
 @app.post("/api/analyze-resume")
 async def analyze_resume(
     resume: UploadFile = File(...),
@@ -790,9 +893,11 @@ def build_answer_prompt(text, history, ctx, force=False, variant=False, answer_a
                         "the candidate say):\n" + "\n".join(lines))
 
     if from_conversation:
-        decide = ("The candidate tapped 'Answer'. LATEST SPEECH is the recent conversation: the interviewer and "
-                  "the candidate mixed, not labelled, oldest first. Find the MOST RECENT question or request from "
-                  "the interviewer and answer that one only. Never output NO_ANSWER.")
+        decide = ("The candidate tapped 'Answer'. LATEST SPEECH is everything said since the last answer: the "
+                  "interviewer and the candidate mixed, not labelled, oldest first. Find the MOST RECENT question "
+                  "or request from the interviewer and answer that one. Use the earlier conversation as context: "
+                  "it may describe the problem, constraints or follow-up parts that the latest question refers to "
+                  "(e.g. 'how would you scale it?'). Never output NO_ANSWER.")
     elif force:
         decide = ("The candidate tapped 'Answer now', so treat the input as an interviewer question "
                   "and ALWAYS answer it. Never output NO_ANSWER.")
@@ -917,8 +1022,9 @@ def should_trigger_ai(text):
 # Answer modes the copilot screen can choose: answer real questions on a pause ("smart", the default),
 # answer everything heard ("all"), or only when the candidate taps Answer ("manual")
 ANSWER_MODES = ("smart", "all", "manual")
-MANUAL_CONTEXT_SECONDS = 120          # "On tap": how far back the conversation is kept for the next tap
-MANUAL_CONTEXT_CHARS = 1500
+# "On tap": everything heard since the last answer (or Skip) is kept for the next tap, with no time window.
+# Only a safety cap: about 25 minutes of speech; beyond it the oldest part is dropped.
+MANUAL_CONTEXT_CHARS = 24000
 MANUAL_SHOWN_QUESTION_CHARS = 220     # how much of that conversation the answer card shows as the "question"
 
 # Custom WebSocket close codes the frontend understands
@@ -1083,17 +1189,15 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
     answer_counter = 0
     last_heard_text = ""         # most recent speech, used by the "Answer now" button
     answer_mode = "smart"        # smart | all | manual (set by the client with "set_mode")
-    heard_log = []               # manual mode: [(time, text)] heard since the last answer
+    heard_log = []               # manual mode: [(time, text)] heard since the last answer or Skip
 
     def recent_answers():
         return [a for _, a in conversation_history[-ECHO_RECENT_ANSWERS:]]
 
     def remember_heard(text):
-        """Manual mode: keep the recent conversation (last MANUAL_CONTEXT_SECONDS / MANUAL_CONTEXT_CHARS)."""
-        now = time.monotonic()
-        heard_log.append((now, text))
-        while heard_log and (now - heard_log[0][0] > MANUAL_CONTEXT_SECONDS
-                             or sum(len(t) for _, t in heard_log) > MANUAL_CONTEXT_CHARS):
+        """Manual mode: keep everything heard since the last answer or Skip (up to MANUAL_CONTEXT_CHARS)."""
+        heard_log.append((time.monotonic(), text))
+        while len(heard_log) > 1 and sum(len(t) for _, t in heard_log) > MANUAL_CONTEXT_CHARS:
             heard_log.pop(0)
 
     def set_mode(mode):
@@ -1205,8 +1309,10 @@ async def websocket_endpoint(websocket: WebSocket, token: str = None):
         start_answer(text, force=True, variant=True)
 
     def skip_current():
-        """'Skip' button: stop the answer being written and forget unanswered speech."""
+        """'Skip' button: stop the answer being written and forget unanswered speech.
+        In "On tap" mode it also forgets the stored conversation: the next Answer uses only what comes after."""
         take_pending_segments()
+        heard_log.clear()
         for task in list(answer_tasks):
             task.cancel()
 
@@ -1361,10 +1467,11 @@ MOCK_FILLERS = ("um", "umm", "uh", "uhh", "hmm", "basically", "actually", "you k
 WS_CLOSE_MOCK_DONE = 1000
 
 
-def run_speech_stream(audio_queue, stop_event, on_result):
+def run_speech_stream(audio_queue, stop_event, on_result, once=False):
     """Blocking: stream PCM chunks from audio_queue to Speech-to-Text until stop_event is set.
 
-    Calls on_result(transcript, is_final) from this thread and reconnects when Google ends the stream.
+    Calls on_result(transcript, is_final) from this thread and reconnects when Google ends the stream
+    (once=True: return when the first stream ends, e.g. after a None in the queue).
     """
     def requests_iter():
         while not stop_event.is_set():
@@ -1392,8 +1499,12 @@ def run_speech_stream(audio_queue, stop_event, on_result):
                 if response.results and response.results[0].alternatives:
                     result = response.results[0]
                     on_result(result.alternatives[0].transcript, result.is_final)
+            if once:
+                return
         except Exception as e:
-            logger.error(f"Mock speech stream error (will retry): {e}")
+            logger.error(f"Speech stream error (will retry): {e}")
+            if once:
+                return
             stop_event.wait(1)
 
 
@@ -1445,6 +1556,12 @@ async def research_company_questions(company: str, role: str) -> dict:
 
 
 async def plan_mock_questions(ctx: dict, company: str, role: str, research_text: str, count: int) -> list:
+    practice = [q for q in (ctx.get("practice") or []) if q][:PRACTICE_MAX_QUESTIONS]
+    practice_rule = ""
+    if practice:
+        practice_rule = ("\n        - The candidate wants to PRACTISE these questions from a real interview they just had. "
+                         "Include each of them (reworded naturally, after the warm-up), with \"kind\": \"practice\":\n"
+                         + "\n".join(f"          * {q}" for q in practice))
     prompt = f"""
         You are preparing a realistic SPOKEN mock interview for a job candidate.
         COMPANY: {company or 'not given'}
@@ -1467,10 +1584,10 @@ async def plan_mock_questions(ctx: dict, company: str, role: str, research_text:
         - The last question is an HR question (why this company, career goals, notice period, etc.).
         - It is spoken: never ask the candidate to write code. For coding or system design, ask them to
           explain their approach out loud ("How would you approach ...? Walk me through it.").
-        - Each question at most 30 words, natural spoken English, no numbering.
+        - Each question at most 30 words, natural spoken English, no numbering.{practice_rule}
 
         OUTPUT JSON ONLY:
-        {{"questions": [{{"question": "...", "kind": "warmup|company|resume|technical|behavioral|hr", "from_research": false}}]}}
+        {{"questions": [{{"question": "...", "kind": "warmup|company|resume|technical|behavioral|hr|practice", "from_research": false}}]}}
         """
     data = _parse_model_json(await generate_text_reliably(prompt, json_mode=True))
     questions = []
@@ -1627,6 +1744,8 @@ class MockInterviewSession:
             research = await research_company_questions(self.company, self.role)
             await self.send({"type": "status", "stage": "planning", "message": "Writing your interview plan…"})
             self.questions = await plan_mock_questions(self.ctx, self.company, self.role, research["text"], self.count)
+            if self.questions:
+                self.ctx.pop("practice", None)   # practice questions are used in one mock only
         except Exception as e:
             logger.error(f"Mock prepare failed for {self.user_email}: {e}")
             self.questions = []
@@ -1892,3 +2011,80 @@ async def mock_interview_ws(websocket: WebSocket, token: str = None, company: st
         logger.error(f"Mock WebSocket error: {e}")
     finally:
         await session.shutdown()
+
+
+# ---------- Free audio test (before the copilot starts) ----------
+# Streams up to AUDIO_TEST_SECONDS of audio to Speech-to-Text and sends back what it heard.
+# Never billed: it doesn't touch the user's minutes. A daily cap keeps it from being used as free transcription.
+AUDIO_TEST_SECONDS = 15
+AUDIO_TEST_DAILY_LIMIT = 15
+
+
+@app.websocket("/ws/audiotest")
+async def audio_test_ws(websocket: WebSocket, token: str = None):
+    await websocket.accept()
+    if not token:
+        await websocket.close(code=WS_CLOSE_AUTH_FAILED)
+        return
+    try:
+        user_id, user_email, _ = await asyncio.to_thread(_authenticate_ws_user, token)
+    except Exception:
+        await websocket.close(code=WS_CLOSE_AUTH_FAILED)
+        return
+    if not use_daily_allowance("audiotest", user_id, AUDIO_TEST_DAILY_LIMIT):
+        await websocket.send_text(json.dumps({"type": "error",
+                                              "message": "You've run a lot of audio tests today. Your audio worked before, so you're good to go."}))
+        await websocket.close()
+        return
+
+    loop = asyncio.get_running_loop()
+    audio_queue = queue.Queue()
+    stop_event = threading.Event()
+
+    async def send(payload):
+        try:
+            await websocket.send_text(json.dumps(payload))
+        except Exception:
+            pass
+
+    def on_result(transcript, is_final):
+        if not stop_event.is_set():
+            asyncio.run_coroutine_threadsafe(
+                send({"type": "transcript", "transcript": transcript, "is_final": is_final}), loop)
+
+    speech_task = asyncio.create_task(asyncio.to_thread(run_speech_stream, audio_queue, stop_event, on_result, True))
+    deadline = loop.time() + AUDIO_TEST_SECONDS
+    logger.info(f"Audio test started: {user_email}")
+    try:
+        await send({"type": "ready", "seconds": AUDIO_TEST_SECONDS})
+        while True:
+            left = deadline - loop.time()
+            if left <= 0:
+                break
+            try:
+                message = await asyncio.wait_for(websocket.receive(), timeout=left)
+            except asyncio.TimeoutError:
+                break
+            if message.get("type") == "websocket.disconnect":
+                break
+            if message.get("bytes"):
+                audio_queue.put(message["bytes"])
+            elif message.get("text") and '"stop"' in message["text"]:
+                break
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        logger.error(f"Audio test error: {e}")
+    finally:
+        # Give Speech-to-Text a moment to return the last words, then stop
+        audio_queue.put(None)
+        try:
+            await asyncio.wait_for(asyncio.shield(speech_task), timeout=3)
+        except Exception:
+            pass
+        stop_event.set()
+        await send({"type": "done"})
+        try:
+            await websocket.close()
+        except Exception:
+            pass
