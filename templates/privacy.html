@@ -73,7 +73,9 @@
             <li><strong>Verification codes:</strong> a one-time email code, stored in hashed form and deleted once your
                 account is verified.</li>
             <li><strong>Content you provide:</strong> your resume (PDF), job descriptions and company name, which you
-                upload to use the Copilot, Prep-Deck and Resume Matcher features.</li>
+                upload to use the Copilot, Prep-Deck and Resume Matcher features. If you paste a link to a job post
+                instead of its text, our server opens that public page to read the job description (it never logs
+                in anywhere as you), and the link is kept in server memory for up to a day so it isn't read twice.</li>
             <li><strong>Audio:</strong> when you start the Live Copilot or run the audio test, audio from your
                 microphone is streamed to our server so it can be transcribed. If you choose "Mic + meeting audio", the audio of the browser tab or
                 screen you choose to share (for example, your video call) is streamed as well. We only use the audio,
@@ -113,7 +115,8 @@
             <li><strong>Google Cloud</strong> (Vertex AI / Gemini and Speech-to-Text) processes your resume, job
                 description, audio and transcripts to produce transcriptions and AI responses. For Mock Interviews
                 and Interview Prep, the company and role you enter (never your resume or answers) are used in a
-                Google Search to find interview experiences and questions candidates report.</li>
+                Google Search to find interview experiences and questions candidates report. When a job-post
+                link can't be read directly, the link is given to Gemini so it can open the page.</li>
             <li><strong>Google Sign-In</strong> authenticates you if you choose to sign in with Google.</li>
             <li><strong>Google (Gmail)</strong> delivers our verification emails.</li>
             <li><strong>Our database and hosting providers</strong> store account data and run the application.</li>
