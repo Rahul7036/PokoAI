@@ -2088,3 +2088,302 @@ async def audio_test_ws(websocket: WebSocket, token: str = None):
             await websocket.close()
         except Exception:
             pass
+
+
+# ---------- Company interview research (dashboard tool) ----------
+# Step 1 (shared, cached): Gemini + Google Search collects interview experiences candidates posted online.
+# Step 2 (per user): organise those notes into rounds / reported questions / tips, and add questions the
+# JD and resume make likely. Reported questions come ONLY from the web notes; predictions are labelled.
+RESEARCH_CACHE_SECONDS = 3 * 24 * 3600
+RESEARCH_CACHE = {}                     # (company, role) lowercased -> (saved_at, notes dict); in memory
+RESEARCH_DAILY_LIMIT = 10               # new searches per user per day (cached results don't count)
+PREVIEW_ANSWER_DAILY_LIMIT = 60         # "Show answer" per user per day
+RESEARCH_MAX_REPORTED = 20
+RESEARCH_MAX_LIKELY = 8
+
+
+async def search_interview_experiences(company: str, role: str) -> dict:
+    """Grounded web search for interview experiences at this company. Returns {text, sources, search_html}."""
+    prompt = (
+        f"Search the web for interview experiences that candidates have shared about interviewing at {company} "
+        f"for {role or 'software engineering'} roles (for example on GeeksforGeeks, Glassdoor, LeetCode Discuss, "
+        f"AmbitionBox, Reddit, Medium), preferring India and the last 2-3 years.\n"
+        f"Write plain notes with three parts:\n"
+        f"PROCESS: the interview rounds candidates describe, in order, one line each (what happens in that round).\n"
+        f"QUESTIONS: up to {RESEARCH_MAX_REPORTED + 5} distinct questions candidates report being asked, one per "
+        f"line, each starting with its round in brackets, e.g. [Online assessment], [Technical], [Coding], "
+        f"[System design], [Managerial], [HR].\n"
+        f"TIPS: up to 6 short tips candidates give (difficulty, what interviewers focus on, mistakes to avoid).\n"
+        f"Only include what candidates actually reported. If you find little or nothing, say so plainly."
+    )
+    config = genai_types.GenerateContentConfig(tools=[genai_types.Tool(google_search=genai_types.GoogleSearch())])
+    # Ride out Gemini's short "429 Resource exhausted" limits: retry, then try the copilot model's own quota
+    attempts = [(model_name, 0), (model_name, 3), (COPILOT_MODEL, 2)]
+    for n, (model, pause) in enumerate(attempts):
+        await asyncio.sleep(pause)
+        try:
+            resp = await ai_client.aio.models.generate_content(model=model, contents=prompt, config=config)
+            break
+        except Exception as e:
+            if not _is_rate_limited(e) or n == len(attempts) - 1:
+                raise
+            logger.warning(f"Company research rate-limited on '{model}', retrying")
+    gm = resp.candidates[0].grounding_metadata if resp.candidates else None
+    sources, seen = [], set()
+    for chunk in (getattr(gm, "grounding_chunks", None) or []):
+        web = getattr(chunk, "web", None)
+        if web and web.uri and (web.title or "") not in seen:
+            seen.add(web.title or "")
+            sources.append({"title": web.title or "source", "uri": web.uri})
+    sep = getattr(gm, "search_entry_point", None)
+    return {"text": (resp.text or "")[:8000], "sources": sources[:8],
+            "search_html": (sep.rendered_content if sep and sep.rendered_content else "")}
+
+
+def _clean_list(items, fields, limit, max_chars=400):
+    out = []
+    for item in items or []:
+        if isinstance(item, dict):
+            row = {f: str(item.get(f) or "").strip()[:max_chars] for f in fields}
+            if row[fields[0]]:
+                out.append(row)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _tip_text(tip) -> str:
+    """Tips should be strings, but the model sometimes returns {"tip": "..."}."""
+    if isinstance(tip, dict):
+        tip = tip.get("tip") or tip.get("text") or next((v for v in tip.values() if isinstance(v, str)), "")
+    return str(tip or "").strip()[:200]
+
+
+class ResearchRequest(BaseModel):
+    company: str
+    role: str = ""
+    jd: str = ""
+
+
+@app.post("/api/company-research")
+async def company_research(data: ResearchRequest, current_user: models.User = Depends(get_current_user_detached)):
+    company = data.company.strip()[:80]
+    role = data.role.strip()[:80]
+    if not company:
+        raise HTTPException(status_code=400, detail="Enter the company name.")
+    if not ai_client:
+        raise HTTPException(status_code=503, detail="AI is not available right now.")
+
+    key = (company.lower(), role.lower())
+    cached = RESEARCH_CACHE.get(key)
+    if cached and time.time() - cached[0] < RESEARCH_CACHE_SECONDS:
+        notes = cached[1]
+    else:
+        if not use_daily_allowance("research", current_user.id, RESEARCH_DAILY_LIMIT):
+            raise HTTPException(status_code=429, detail="You've researched a lot of companies today. Please try again tomorrow.")
+        try:
+            notes = await search_interview_experiences(company, role)
+        except Exception as e:
+            logger.error(f"Company research search failed for {company}/{role}: {e}")
+            raise HTTPException(status_code=502, detail="Couldn't search the web right now. Please try again in a minute.")
+        if notes["text"]:
+            RESEARCH_CACHE[key] = (time.time(), notes)
+
+    ctx = get_user_context(current_user.id)
+    jd = data.jd.strip()[:CONTEXT_MAX_JD_CHARS] or ctx.get("jd") or ""
+    prompt = f"""
+        You are helping a job candidate prepare for an interview at {company} for the role: {role or 'not given'}.
+
+        WEB RESEARCH NOTES (what candidates reported online; may be thin or empty):
+        {notes['text'] or 'nothing found'}
+
+        JOB DESCRIPTION: {jd[:COPILOT_JD_CHARS] or 'not given'}
+        CANDIDATE RESUME: {(ctx.get('resume') or 'not given')[:COPILOT_RESUME_CHARS]}
+
+        Return JSON with:
+        - "found": true if the notes contain real reported interview information for this company, else false.
+        - "summary": 1-2 plain sentences about this interview (rounds, difficulty, focus). If little was found,
+          say that honestly.
+        - "process": the rounds in order, each {{"round": "...", "what": "one sentence"}}. ONLY from the notes; [] if none.
+        - "reported": up to {RESEARCH_MAX_REPORTED} questions candidates reported, each {{"question": "...",
+          "round": "Coding|Technical|System design|Behavioral|HR|Online assessment|Managerial"}}. ONLY questions that
+          appear in the notes (you may tidy the wording). NEVER invent any. [] if none.
+        - "likely": {RESEARCH_MAX_LIKELY} questions this candidate is likely to get, based on the job description's key
+          skills and the projects on the resume, each {{"question": "...", "why": "max 12 words: which JD skill or
+          resume project"}}. Don't repeat reported questions.
+        - "tips": up to 6 short tips from the notes (max 20 words each). [] if none.
+
+        OUTPUT JSON ONLY.
+        """
+    try:
+        result = _parse_model_json(await generate_text_reliably(prompt, json_mode=True))
+    except Exception as e:
+        logger.error(f"Company research organise failed for {current_user.email}: {e}")
+        raise HTTPException(status_code=502, detail="Couldn't put the research together. Please try again.")
+
+    reported = _clean_list(result.get("reported"), ("question", "round"), RESEARCH_MAX_REPORTED)
+    logger.info(f"Company research: {current_user.email} -> {company}/{role or '-'} ({len(reported)} reported)")
+    return {
+        "company": company, "role": role,
+        "found": bool(result.get("found")) and bool(reported or result.get("process")),
+        "summary": str(result.get("summary") or "").strip()[:500],
+        "process": _clean_list(result.get("process"), ("round", "what"), 8),
+        "reported": reported,
+        "likely": _clean_list(result.get("likely"), ("question", "why"), RESEARCH_MAX_LIKELY),
+        "tips": [t for t in (_tip_text(t) for t in (result.get("tips") or [])) if t][:6],
+        "sources": [s for s in notes["sources"] if str(s.get("uri", "")).startswith("https://")],
+        "search_html": notes["search_html"],
+    }
+
+
+class PreviewAnswerRequest(BaseModel):
+    question: str
+    company: str = ""     # the researched company/JD, which may differ from the copilot setup
+    jd: str = ""
+
+
+@app.post("/api/preview-answer")
+async def preview_answer(data: PreviewAnswerRequest, current_user: models.User = Depends(get_current_user_detached)):
+    """A suggested answer to one practice question, in the copilot's SAY / points / CODE / PROJECT format."""
+    question = data.question.strip()[:COPILOT_REGENERATE_MAX_CHARS]
+    if not question:
+        raise HTTPException(status_code=400, detail="No question given.")
+    if not ai_client:
+        raise HTTPException(status_code=503, detail="AI is not available right now.")
+    if not use_daily_allowance("preview", current_user.id, PREVIEW_ANSWER_DAILY_LIMIT):
+        raise HTTPException(status_code=429, detail="You've opened a lot of answers today. Please try again tomorrow.")
+    ctx = dict(get_user_context(current_user.id))
+    if data.company.strip():
+        ctx["company"] = data.company.strip()[:CONTEXT_MAX_COMPANY_CHARS]
+    if data.jd.strip():
+        ctx["jd"] = data.jd.strip()[:CONTEXT_MAX_JD_CHARS]
+    try:
+        text = ""
+        async for piece in stream_copilot_answer(build_answer_prompt(question, [], ctx, force=True)):
+            text += piece
+    except Exception as e:
+        logger.error(f"Preview answer failed for {current_user.email}: {e}")
+        raise HTTPException(status_code=502, detail="Couldn't write the answer right now. Please try again.")
+    return {"answer": text.strip()}
+
+
+# ---------- Prep plan: an hour-by-hour (or day-by-day) plan until the interview ----------
+PLAN_DAILY_LIMIT = 20
+PLAN_MAX_HOURS = 168          # one week
+PLAN_DAY_SPLIT_HOURS = 30     # more time than this: plan by day; less: one timeline (with sleep if it crosses a night)
+
+
+class PlanRequest(BaseModel):
+    company: str
+    role: str = ""
+    jd: str = ""
+    hours: float
+    now_local: str = ""          # e.g. "Fri 14 Nov, 3:40 PM" (the user's clock), so nights can be planned as sleep
+    interview_local: str = ""
+    process: list[str] = []      # "Round: what happens"
+    reported: list[str] = []     # questions candidates reported at this company
+    likely: list[str] = []       # questions the JD/resume make likely
+    tips: list[str] = []
+
+
+def _clip_list(items, limit, chars=300):
+    return [str(i).strip()[:chars] for i in items if str(i).strip()][:limit]
+
+
+@app.post("/api/prep-plan")
+async def prep_plan(data: PlanRequest, current_user: models.User = Depends(get_current_user_detached)):
+    company = data.company.strip()[:80]
+    if not company:
+        raise HTTPException(status_code=400, detail="Enter the company name.")
+    hours = max(0.5, min(float(data.hours or 0), PLAN_MAX_HOURS))
+    if not ai_client:
+        raise HTTPException(status_code=503, detail="AI is not available right now.")
+    if not use_daily_allowance("plan", current_user.id, PLAN_DAILY_LIMIT):
+        raise HTTPException(status_code=429, detail="You've made a lot of plans today. Please try again tomorrow.")
+
+    ctx = get_user_context(current_user.id)
+    by_day = hours > PLAN_DAY_SPLIT_HOURS
+    days = max(1, round(hours / 24)) if by_day else 1
+    lines = lambda items: "\n".join(f"- {i}" for i in items) or "- none"
+    clock = ""
+    if data.now_local.strip() and data.interview_local.strip():
+        clock = (f" It is now {data.now_local.strip()[:40]} (candidate's local time); the interview is at "
+                 f"{data.interview_local.strip()[:40]}. Never schedule study between 11:30 PM and 6:30 AM unless the "
+                 f"interview is within 8 hours: put a \"break\" block titled \"Sleep\" there instead.")
+    timing = (
+        f"The interview is in about {hours:g} hours ({days} day{'s' if days > 1 else ''}). Plan BY DAY: set \"day\" "
+        f"from 1 to {days} on every block. Leave time for sleep, meals and breaks: at most 6-7 hours of study a day. "
+        f"The last day before the interview is lighter: revision and one mock, no new big topics." + clock
+        if by_day else
+        f"The interview is in about {hours:g} hours. Plan straight through from now, \"day\": 1 on every block. "
+        f"The blocks run back to back from now; their minutes must add up to at most {int(hours * 60) - 15} "
+        f"minutes (keep the last 15 minutes free). Include a 5-10 minute break about every 90 minutes if there is "
+        f"time, and meals if the plan crosses lunch or dinner." + clock
+        + (" Time is very short: only the highest-value topics, no breaks." if hours <= 2 else "")
+    )
+    prompt = f"""
+        You are an expert interview coach. Make a realistic, structured PREP PLAN for a candidate interviewing at
+        {company} for: {data.role.strip()[:80] or 'see the job description'}.
+
+        TIMING: {timing}
+
+        INTERVIEW ROUNDS CANDIDATES REPORTED:
+        {lines(_clip_list(data.process, 8))}
+        QUESTIONS CANDIDATES REPORTED AT THIS COMPANY:
+        {lines(_clip_list(data.reported, 20))}
+        QUESTIONS LIKELY FROM THE JOB DESCRIPTION / RESUME:
+        {lines(_clip_list(data.likely, 8))}
+        TIPS FROM CANDIDATES:
+        {lines(_clip_list(data.tips, 6, 200))}
+        JOB DESCRIPTION: {(data.jd.strip() or ctx.get('jd') or 'not given')[:COPILOT_JD_CHARS]}
+        CANDIDATE RESUME: {(ctx.get('resume') or 'not given')[:COPILOT_RESUME_CHARS]}
+
+        HOW TO PRIORITISE:
+        1. Topics behind questions candidates reported at this company, in the order of the rounds.
+        2. JD skills the resume does NOT show (gaps the interviewer may probe).
+        3. The candidate's own resume projects (they WILL be asked to explain them) and an intro pitch.
+        4. Behavioral / HR answers in STAR form if the company asks them.
+        Be specific: name the exact topics, patterns and questions. No generic advice like "study hard".
+        Include ONE "mock" block (PrapAI's AI mock interview) when there are 2+ hours, near the end.
+
+        Return JSON ONLY:
+        {{"headline": "one sentence: the strategy for this time",
+          "blocks": [{{"day": 1, "minutes": 60, "type": "study|practice|mock|break|review",
+                      "title": "max 8 words", "why": "max 18 words: why this matters at {company}",
+                      "tasks": ["2-4 concrete tasks, max 16 words each"],
+                      "questions": ["0-4 questions to practise in this block, copied from the lists above when possible"]}}],
+          "before_call": ["3-5 short things to do in the last 15 minutes"]}}
+        """
+    try:
+        result = _parse_model_json(await generate_text_reliably(prompt, json_mode=True))
+    except Exception as e:
+        logger.error(f"Prep plan failed for {current_user.email}: {e}")
+        raise HTTPException(status_code=502, detail="Couldn't make the plan right now. Please try again.")
+
+    blocks = []
+    for b in (result.get("blocks") or [])[:40]:
+        if not isinstance(b, dict) or not str(b.get("title") or "").strip():
+            continue
+        try:
+            minutes = int(float(b.get("minutes") or 0))
+        except (TypeError, ValueError):
+            minutes = 0
+        kind = str(b.get("type") or "study").lower()
+        try:
+            day = int(b.get("day") or 1)
+        except (TypeError, ValueError):
+            day = 1
+        blocks.append({
+            "day": min(max(day, 1), days) if by_day else 1,
+            "minutes": min(max(minutes, 5), 600 if kind == "break" else 240),   # a night's sleep is a long break
+            "type": kind if kind in ("study", "practice", "mock", "break", "review") else "study",
+            "title": str(b.get("title")).strip()[:80],
+            "why": str(b.get("why") or "").strip()[:200],
+            "tasks": _clip_list(b.get("tasks") or [], 5, 200),
+            "questions": _clip_list(b.get("questions") or [], 4, 300),
+        })
+    if not blocks:
+        raise HTTPException(status_code=502, detail="Couldn't make the plan right now. Please try again.")
+    logger.info(f"Prep plan: {current_user.email} -> {company} in {hours:g}h, {len(blocks)} blocks")
+    return {"hours": hours, "by_day": by_day, "headline": str(result.get("headline") or "").strip()[:300],
+            "blocks": blocks, "before_call": [t for t in (_tip_text(t) for t in (result.get("before_call") or [])) if t][:5]}

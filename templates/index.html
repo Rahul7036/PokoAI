@@ -3057,7 +3057,7 @@
         #landing-view button.lv-btn { font-family: var(--font-body); }
 
         /* ===== Mock interview (reuses the copilot's .cp-* building blocks) ===== */
-        #mock-view {
+        #mock-view, #research-view {
             --cp-scale: 1;
             --cp-bg: #020617;
             --cp-surface: #0b1224;
@@ -3072,6 +3072,54 @@
             height: 100dvh;
             background: #020617;
         }
+        .rs-results { max-width: 720px; padding-bottom: 2rem; }
+        .rs-h { font-size: 1.02rem; margin: 1.6rem 0 0.7rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+        .rs-tag { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; color: var(--cp-muted);
+            border: 1px solid var(--cp-border); border-radius: 6px; padding: 0.1rem 0.45rem; }
+        .rs-tag-web { color: var(--cp-blue); border-color: rgba(56, 189, 248, 0.45); }
+        .rs-process { margin: 0; padding-left: 1.3rem; display: grid; gap: 0.45rem; line-height: 1.45; }
+        .rs-process span { color: var(--cp-muted); }
+        .rs-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.55rem; }
+        .rs-item { border: 1px solid var(--cp-border); border-radius: 12px; padding: 0.7rem 0.85rem; background: var(--cp-surface); }
+        .rs-item.picked { border-color: rgba(56, 189, 248, 0.6); }
+        .rs-qrow { display: flex; gap: 0.65rem; align-items: flex-start; }
+        .rs-qrow input { margin-top: 0.3rem; width: 18px; height: 18px; flex: none; accent-color: #38bdf8; }
+        .rs-q { font-weight: 600; line-height: 1.45; flex: 1; }
+        .rs-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0.45rem 0 0 1.75rem; font-size: 0.82rem; color: var(--cp-muted); }
+        .rs-ans-btn { background: none; border: none; color: var(--cp-blue); font: inherit; font-weight: 700; cursor: pointer; padding: 0; }
+        .rs-answer { margin: 0.6rem 0 0 1.75rem; padding-left: 0.75rem; border-left: 3px solid rgba(56, 189, 248, 0.5); line-height: 1.5; font-size: 0.93rem; }
+        .rs-answer ul { margin: 0.4rem 0 0; padding-left: 1.1rem; color: var(--cp-muted); }
+        .rs-answer pre { white-space: pre-wrap; font-size: 0.8rem; background: #020617; padding: 0.6rem; border-radius: 8px; overflow-x: auto; }
+        .rs-answer .rs-proj { margin-top: 0.4rem; color: #bbf7d0; font-size: 0.88rem; }
+        .rs-tips { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.4rem; color: var(--cp-text); line-height: 1.45; }
+        .rs-actions { display: grid; gap: 0.6rem; margin-top: 1.75rem; }
+        .rs-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+        .rs-chips button { border: 1px solid var(--cp-border); background: var(--cp-surface); color: var(--cp-text); border-radius: 999px;
+            padding: 0.35rem 0.75rem; font: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer; }
+        .rs-plan { margin: 0.5rem 0 0.5rem; padding: 1rem; border-radius: 16px; border: 1px solid rgba(56, 189, 248, 0.35);
+            background: linear-gradient(180deg, rgba(56, 189, 248, 0.07), transparent 60%); }
+        .rs-plan-title { font-weight: 800; font-size: 1.05rem; margin-bottom: 0.7rem; }
+        .rs-plan-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
+        .rs-plan-meta { color: var(--cp-muted); font-size: 0.85rem; margin-top: 0.15rem; }
+        .rs-progress { font-size: 0.8rem; font-weight: 800; color: #082f49; background: var(--cp-blue); border-radius: 999px; padding: 0.2rem 0.6rem; white-space: nowrap; }
+        .rs-plan-headline { margin: 0.7rem 0 0.9rem; line-height: 1.5; }
+        .rs-day { margin: 1.1rem 0 0.5rem; font-weight: 800; color: var(--cp-blue); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.4px; }
+        .rs-block { border: 1px solid var(--cp-border); border-left: 4px solid var(--cp-blue); border-radius: 12px; padding: 0.75rem 0.9rem;
+            background: var(--cp-surface); margin-bottom: 0.6rem; }
+        .rs-type-practice { border-left-color: #a78bfa; }
+        .rs-type-mock { border-left-color: var(--cp-green); }
+        .rs-type-break { border-left-color: var(--cp-border); opacity: 0.8; }
+        .rs-type-review { border-left-color: var(--cp-amber); }
+        .rs-block-time { font-size: 0.78rem; font-weight: 700; color: var(--cp-muted); }
+        .rs-block-title { font-weight: 800; margin-top: 0.15rem; }
+        .rs-block-why { color: var(--cp-muted); font-size: 0.88rem; margin-top: 0.2rem; line-height: 1.45; }
+        .rs-tasks { list-style: none; margin: 0.55rem 0 0; padding: 0; display: grid; gap: 0.35rem; }
+        .rs-tasks label { display: flex; gap: 0.55rem; align-items: flex-start; line-height: 1.45; font-size: 0.93rem; cursor: pointer; }
+        .rs-tasks input { margin-top: 0.25rem; width: 17px; height: 17px; flex: none; accent-color: #22c55e; }
+        .rs-tasks input:checked + span { color: var(--cp-muted); text-decoration: line-through; }
+        .rs-block .rs-list { margin-top: 0.6rem; }
+        .rs-mock-btn { width: 100%; height: 44px; margin-top: 0.6rem; }
+        .rs-actions .cp-btn { height: 48px; }
         .mk-title { font-family: 'Outfit', sans-serif; font-size: 1.7rem; font-weight: 800; margin-bottom: 0.4rem; }
         .mk-sub { color: var(--cp-muted); margin-bottom: 1.25rem; line-height: 1.5; }
         .mk-form { display: grid; gap: 0.8rem; margin-bottom: 1.25rem; }
@@ -3283,7 +3331,7 @@
       PrapAI
     </a>
     <nav class="lv-nav" aria-label="Sections">
-      <a href="#how">How it works</a><a href="#live">Live calls</a><a href="#privacy">Privacy</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a>
+      <a href="#how">How it works</a><a href="#practice">Mock interview</a><a href="#live">Live calls</a><a href="#privacy">Privacy</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a>
     </nav>
     <div class="lv-header-actions">
       <button type="button" class="lv-btn lv-btn-ghost lv-btn-sm" onclick="openSignin()">Sign in</button>
@@ -3298,12 +3346,12 @@
     <div class="lv-wrap lv-hero-copy">
       <div class="lv-eyebrow"><i></i>Live interview copilot · Beta</div>
       <h1>Know what to say <span>the moment they ask.</span></h1>
-      <p class="lv-lede">PrapAI listens to your interview and, when the interviewer pauses, shows <strong>one opening line and three talking points</strong> from your own resume. In about a second.</p>
+      <p class="lv-lede">PrapAI listens to your interview and, when the interviewer pauses, shows <strong>a line to say first and the points to cover</strong>, built from your own resume. About two seconds after they stop talking.</p>
       <div class="lv-cta-row">
         <button type="button" class="lv-btn lv-btn-primary" onclick="openSignup()">Start free, 7 minutes</button>
         <a class="lv-btn lv-btn-ghost" href="#how">See how it works</a>
       </div>
-      <p class="lv-micro">No card needed · Audio is never saved</p>
+      <p class="lv-micro">No card needed · Free audio test before you start · Audio is never saved</p>
     </div>
 
     <div class="lv-wrap">
@@ -3336,7 +3384,7 @@
         </div>
 
         <div class="lv-chip lv-c1"><span class="lv-wave"><i style="height:6px"></i><i style="height:12px"></i><i style="height:8px"></i><i style="height:14px"></i></span>Listening to the call</div>
-        <div class="lv-chip lv-c2">First words in <b>~1.1s</b></div>
+        <div class="lv-chip lv-c2">First words in <b>~2s</b></div>
         <div class="lv-chip lv-c3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>From your resume</div>
       </div>
     </div>
@@ -3400,8 +3448,8 @@
           <div class="lv-row-copy">
             <div class="lv-step-no">STEP 03</div>
             <h3>Glance at the answer, then speak</h3>
-            <p>When the interviewer pauses, the answer appears on your phone: an opening line to say first, then three short cues to talk through in your own words.</p>
-            <ul class="lv-ticks"><li>Behavioural answers follow Situation, Action, Result</li><li>Your phone buzzes when an answer is ready</li><li>Swipe back to see earlier answers</li></ul>
+            <p>When the interviewer pauses, the answer appears on your phone or laptop: a line to say first with a short, plain explanation, then a few cues to talk through in your own words.</p>
+            <ul class="lv-ticks"><li>Behavioural answers follow Situation, Task, Action, Result</li><li>"Link it to your project" ties the answer to your resume</li><li>Your phone buzzes when an answer is ready; swipe back for earlier ones</li></ul>
           </div>
           <div class="lv-stage">
             <div class="lv-phone-solo">
@@ -3420,7 +3468,7 @@
                 <div class="lv-scr-foot"><div class="lv-ticker">…a conflict with a teammate?</div><div class="lv-scr-btns"><span>Skip</span><span>Answer now</span></div></div>
               </div>
               <div class="lv-float-note lv-n1"><span class="lv-wave"><i style="height:6px"></i><i style="height:12px"></i><i style="height:9px"></i></span>Interviewer paused</div>
-              <div class="lv-float-note lv-n2">Answer in <b>1.1s</b></div>
+              <div class="lv-float-note lv-n2">Answer in <b>~2s</b></div>
             </div>
           </div>
         </div>
@@ -3430,8 +3478,8 @@
           <div class="lv-row-copy">
             <div class="lv-step-no">CODING ROUNDS</div>
             <h3>Coding questions, with the code</h3>
-            <p>For coding questions you get the approach in one line, the edge cases to mention, and clean code with its time and space complexity.</p>
-            <ul class="lv-ticks"><li>Language taken from the job description</li><li>Detail opens automatically for code</li></ul>
+            <p>For coding questions you get the approach in plain words, the points to mention, and a short code example with comments on every step.</p>
+            <ul class="lv-ticks"><li>The code example is one tap away</li><li>Comments explain each line, so you can talk it through</li></ul>
           </div>
           <div class="lv-stage">
             <div class="lv-code-card">
@@ -3445,7 +3493,6 @@
             <span class="lv-k">return</span> <span class="lv-k">False</span>
         left, right = left + <span class="lv-n">1</span>, right - <span class="lv-n">1</span>
     <span class="lv-k">return</span> <span class="lv-k">True</span>  <span class="lv-c"># "A man, a plan..." -> True</span></pre>
-              <div class="lv-complexity"><span>Time O(n)</span><span>Space O(n)</span><span>Edge: empty string</span></div>
             </div>
           </div>
         </div>
@@ -3479,6 +3526,68 @@
     </div>
   </section>
 
+  <!-- PRACTICE + AFTER THE CALL -->
+  <section class="lv-block" id="practice" style="padding-top: 0;">
+    <div class="lv-wrap">
+      <div class="lv-section-head">
+        <div class="lv-kicker">BEFORE AND AFTER THE CALL</div>
+        <h2>Know what they ask. Practise it. Review it.</h2>
+        <p>The copilot helps during the call. These help before and after it.</p>
+      </div>
+      <div class="lv-rows">
+        <div class="lv-row lv-flip">
+          <div class="lv-row-copy">
+            <div class="lv-step-no">INTERVIEW PREP</div>
+            <h3>A prep plan for the hours you actually have</h3>
+            <p>Enter the company, the role and when your interview is. PrapAI reads interview experiences candidates shared online (the rounds, the questions they were asked, their tips) and builds a plan around them: what to study first, which questions to practise, and when to sleep.</p>
+            <ul class="lv-ticks"><li>Questions reported by candidates, with the sources, kept separate from predicted ones</li><li>Hour by hour for today, day by day for later</li><li>Tick tasks as you go; a mock interview is built in</li></ul>
+          </div>
+          <div class="lv-stage">
+            <div class="lv-panel">
+              <div class="lv-panel-title">Your prep plan <small>Interview in 4 h</small></div>
+              <div class="lv-field"><label>4:00 – 4:45 PM · STUDY</label><p>Leadership Principles: map your 3 best projects to STAR stories.</p></div>
+              <div class="lv-field"><label>4:45 – 5:35 PM · PRACTICE</label><p>Graph problems candidates report: course schedule, clone a graph.</p></div>
+              <div class="lv-field"><label>6:45 – 7:35 PM · MOCK INTERVIEW</label><p>Coding + behavioural, with this company's questions.</p></div>
+            </div>
+          </div>
+        </div>
+        <div class="lv-row">
+          <div class="lv-row-copy">
+            <div class="lv-step-no">MOCK INTERVIEW</div>
+            <h3>An AI interviewer who asks what this company asks</h3>
+            <p>Enter the company and role. PrapAI searches the web for questions candidates report being asked there, mixes in questions about your resume, and interviews you out loud, with follow-ups like a real interviewer.</p>
+            <ul class="lv-ticks"><li>Questions researched for the company you name</li><li>A score and a better answer for every question</li><li>Preparing and scoring are free; minutes count only while it runs</li></ul>
+          </div>
+          <div class="lv-stage">
+            <div class="lv-panel">
+              <div class="lv-panel-title">Mock interview <small>Question 3 of 8</small></div>
+              <div class="lv-field"><label>INTERVIEWER · FROM QUESTIONS REPORTED ONLINE</label><p>“How would you design the service that tracks an order from the restaurant to the customer?”</p></div>
+              <div class="lv-field"><label>YOUR SCORE</label><p><b style="font-size:1.4rem;color:#e0f2fe">7</b> / 10 · Clear structure. Add how you'd handle a driver going offline.</p></div>
+              <div class="lv-field"><label>A BETTER ANSWER STARTS WITH</label><p>“I'd treat every status change as an event, so the app, the restaurant and the driver all stay in sync…”</p></div>
+            </div>
+          </div>
+        </div>
+        <div class="lv-row lv-flip">
+          <div class="lv-row-copy">
+            <div class="lv-step-no">AFTER THE CALL</div>
+            <h3>An interview report you can keep</h3>
+            <p>When you stop the copilot, PrapAI lists every question you were asked, with the suggested answers, and picks the topics worth revising before the next round.</p>
+            <ul class="lv-ticks"><li>Three topics to revise, with a concrete tip each</li><li>Copy or download it</li><li>"Practice in a mock" turns the hardest questions into your next mock interview</li></ul>
+          </div>
+          <div class="lv-stage">
+            <div class="lv-panel">
+              <div class="lv-panel-title">Interview report <small>6 questions</small></div>
+              <div class="lv-prep-grid">
+                <div class="lv-prep"><div class="lv-prep-t">REVISE</div><p>Cache invalidation. Asked how to keep Redis in sync with the database.</p></div>
+                <div class="lv-prep"><div class="lv-prep-t">REVISE</div><p>Rate limiting. Learn token bucket and sliding window.</p></div>
+              </div>
+              <ul class="lv-fixes"><li>How would you invalidate a Redis cache when the database changes?</li><li>What is the difference between a process and a thread?</li><li>How would you design a rate limiter for the order API?</li></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
   <!-- LIVE CALL TILES -->
   <section class="lv-block" id="live" style="background: var(--bg-2); border-block: 1px solid var(--line);">
     <div class="lv-wrap">
@@ -3498,11 +3607,27 @@
         </div>
         <div class="lv-tile-card">
           <div class="lv-tile-vis"><div class="lv-two-btns"><span>Skip</span><span>Answer now</span></div></div>
-          <h3>You stay in control</h3><p>Answer now if it missed a question. Skip if you don't need one.</p>
+          <h3>You stay in control</h3><p>Smart answers real questions, Answer all answers everything, On tap waits until you tap. Skip what you don't need.</p>
         </div>
         <div class="lv-tile-card">
           <div class="lv-tile-vis"><div class="lv-sizes"><span>Aa</span><span>Aa</span><span>Aa</span></div></div>
           <h3>Readable at a glance</h3><p>Resize the text, keep the screen awake, and feel a buzz for each answer.</p>
+        </div>
+        <div class="lv-tile-card">
+          <div class="lv-tile-vis"><div class="lv-bars"><i style="height:10px"></i><i style="height:22px"></i><i style="height:30px"></i><i style="height:18px"></i><i style="height:26px"></i><i style="height:12px"></i></div></div>
+          <h3>Free audio test</h3><p>Check that it hears you, and the meeting, before the interview starts. Uses no minutes.</p>
+        </div>
+        <div class="lv-tile-card">
+          <div class="lv-tile-vis"><div class="lv-two-btns"><span>Zoom / Meet</span><span>PrapAI ⧉</span></div></div>
+          <h3>Floats over your call</h3><p>In Chrome or Edge on a laptop, pop the answers into a small window that stays on top of Zoom, Meet or Teams.</p>
+        </div>
+        <div class="lv-tile-card">
+          <div class="lv-tile-vis"><div class="lv-two-btns"><span>↻ Refresh</span><span>Still here</span></div></div>
+          <h3>Survives a refresh</h3><p>Reload by accident and your setup and answers come back. Listening picks up again, at most one tap away.</p>
+        </div>
+        <div class="lv-tile-card">
+          <div class="lv-tile-vis"><div class="lv-two-btns"><span>Prep · Test · Report</span><span>Free</span></div></div>
+          <h3>Pay only for listening</h3><p>Setup, prep cards, resume match, the audio test and reports are free. Minutes count only while it listens.</p>
         </div>
       </div>
     </div>
@@ -3522,8 +3647,8 @@
           <li><b>Minutes used</b><span>To apply your time limit</span></li></ul></div>
         <div class="lv-ledger lv-never"><h3><i></i>Never saved</h3><ul>
           <li><b>Interview audio</b><span>Transcribed live, then discarded</span></li>
-          <li><b>Your resume and the job description</b><span>Kept in memory only while you use them</span></li>
-          <li><b>Questions and answers</b><span>Not written to our database</span></li></ul></div>
+          <li><b>Your resume and the job description</b><span>Kept in server memory while you use them, and in your own browser until you sign out</span></li>
+          <li><b>Questions, answers and reports</b><span>Not written to our database</span></li></ul></div>
       </div>
       <p class="lv-privacy-foot">Transcription and answers are processed by Google Cloud. No ads, and we don't sell your data. <a href="/privacy">Privacy policy</a></p>
     </div>
@@ -3537,19 +3662,19 @@
         <div class="lv-plan lv-current">
           <div class="lv-plan-name">Free <span class="lv-badge">AVAILABLE NOW</span></div>
           <div class="lv-price">₹0 <small>to start</small></div>
-          <ul><li>7 minutes of live copilot</li><li>Prep cards and resume match</li><li>No card needed</li></ul>
+          <ul><li>7 minutes of live copilot or mock interview</li><li>Prep cards, resume match, audio test and interview reports</li><li>No card needed</li></ul>
           <button type="button" class="lv-btn lv-btn-primary" onclick="openSignup()">Start free</button>
         </div>
         <div class="lv-plan">
           <div class="lv-plan-name">Starter</div>
           <div class="lv-price">₹299 <small>/ 45 minutes</small></div>
-          <ul><li>45 minutes of live copilot</li><li>Everything in Free</li><li>One-time payment, minutes never expire</li></ul>
+          <ul><li>About one full interview</li><li>Use the minutes live or for mock interviews</li><li>One-time payment, minutes never expire</li></ul>
           <button type="button" class="lv-btn lv-btn-ghost" onclick="buyPlan('starter')">Buy 45 minutes</button>
         </div>
         <div class="lv-plan">
           <div class="lv-plan-name">Pro <span class="lv-badge">BEST VALUE</span></div>
           <div class="lv-price">₹699 <small>/ 120 minutes</small></div>
-          <ul><li>120 minutes of live copilot</li><li>For multi-round processes</li><li>One-time payment, minutes never expire</li></ul>
+          <ul><li>About three interview rounds</li><li>₹5.8 a minute, 12% less than Starter</li><li>One-time payment, minutes never expire</li></ul>
           <button type="button" class="lv-btn lv-btn-ghost" onclick="buyPlan('pro')">Buy 120 minutes</button>
         </div>
       </div>
@@ -3563,8 +3688,12 @@
       <div class="lv-section-head"><div class="lv-kicker">FAQ</div><h2>Questions people ask first.</h2></div>
       <div class="lv-faq">
         <details><summary>Does it work with Zoom, Google Meet and Teams?</summary><p>Yes. Put your phone near the laptop speakers, or open PrapAI on the laptop and share the meeting tab with audio. PrapAI doesn't join or change your call.</p></details>
+        <details><summary>How do I know it can hear the interviewer?</summary><p>Tap "Test my audio first" on the Copilot screen. For 15 seconds it shows sound levels and the words it heard, then tells you if anything needs fixing. It's free and uses no minutes.</p></details>
         <details><summary>What if I'm wearing headphones?</summary><p>Then your phone can't hear the interviewer. Open PrapAI on the laptop, choose "Mic + meeting audio" and share the tab that has your call.</p></details>
-        <details><summary>How fast are the answers?</summary><p>The first words usually appear about a second after the interviewer stops talking. The rest fills in while you say the opening line.</p></details>
+        <details><summary>How fast are the answers?</summary><p>The first words usually appear about two seconds after the interviewer stops talking: PrapAI waits about a second to be sure they've finished, then starts writing. The rest fills in while you say the opening line.</p></details>
+        <details><summary>What is the mock interview?</summary><p>An AI interviewer asks you questions out loud, including questions candidates report being asked at the company you name (found with a web search) and questions about your resume. You answer out loud, it may ask a follow-up, and at the end you get a score and a better answer for each question. It uses the same minutes as the copilot, only while the interview runs.</p></details>
+        <details><summary>Can it tell me what a company usually asks, and make a prep plan?</summary><p>Yes. After signing in, open "Interview prep", enter the company, role, when your interview is and (optionally) the job description. PrapAI searches interview experiences candidates shared online and shows the rounds, the questions they reported, their tips and the sources, plus questions your job description and resume make likely, clearly marked as predictions. Then it builds a prep plan that fits your time: hour by hour if the interview is today, day by day if it's later, with sleep and a mock interview included. Tap any question for a suggested answer, tick tasks as you go, or practise questions in a mock interview. It's free.</p></details>
+        <details><summary>What do I get after a real interview?</summary><p>Tap Stop, then "Interview report": every question you were asked, the suggested answers, and three topics to revise. You can copy or download it, or turn the hardest questions into a mock interview. The report is free.</p></details>
         <details><summary>Will the answers sound like me?</summary><p>They use only facts from your resume and are short cues, not a script. You say them in your own words.</p></details>
         <details><summary>What happens to my resume?</summary><p>It's read to prepare answers and kept in memory on our server while you use PrapAI. It isn't saved to our database. So you don't have to upload it again after a refresh or for your next interview, the resume text, company and job description are also kept in your own browser on this device. Signing out clears them.</p></details>
         <details><summary>How do I buy more minutes?</summary><p>Sign in, then tap "Buy" on a plan. A ready email to us opens in Gmail (or your mail app) with the plan and your account email filled in: just press Send. We reply with UPI payment details and add the minutes to your account once the payment arrives. Minutes are only used while the copilot is listening, and they don't expire.</p></details>
@@ -3655,6 +3784,12 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/></svg>
                     <span class="db-tool-text"><span class="db-tool-title">Mock interview <span class="lp-badge">NEW</span></span>
                         <span class="db-tool-desc">An AI interviewer asks real questions this company is known to ask, then scores every answer.</span></span>
+                    <span class="db-arrow" aria-hidden="true">&rarr;</span>
+                </button>
+                <button class="db-tool" type="button" onclick="openResearch()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/><path d="M8 11h6M11 8v6"/></svg>
+                    <span class="db-tool-text"><span class="db-tool-title">Interview prep <span class="lp-badge">NEW</span></span>
+                        <span class="db-tool-desc">Say when your interview is: get the company's rounds, the questions candidates were asked there, and a prep plan that fits your time. Free.</span></span>
                     <span class="db-arrow" aria-hidden="true">&rarr;</span>
                 </button>
             </div>
@@ -3817,6 +3952,126 @@
             </footer>
 
             <div id="cpToast" class="cp-toast hidden" role="status"></div>
+        </div>
+    </div>
+    <!-- VIEW: COMPANY RESEARCH -->
+    <div id="research-view" class="view">
+        <div class="cp">
+            <header class="cp-bar">
+                <button class="cp-icon-btn" onclick="showView('dashboard-view')" title="Back to dashboard"
+                    aria-label="Back to dashboard">&larr;</button>
+                <div id="rsState" class="cp-state idle" role="status" aria-live="polite">
+                    <span class="cp-dot"></span><span id="rsStateText">Interview prep</span>
+                </div>
+                <div class="cp-bar-right"></div>
+            </header>
+
+            <main class="cp-main" id="rsMain">
+                <!-- 1. What to research -->
+                <section id="rsSetup" class="cp-idle">
+                    <div class="mk-title">Interview prep</div>
+                    <p class="mk-sub">Tell PrapAI where and when you're interviewing. It searches the web for interview
+                        experiences candidates shared about this company (the rounds, the questions they were asked, their
+                        tips), adds questions your job description and resume make likely, and turns it all into a prep
+                        plan that fits the time you have.</p>
+                    <div class="mk-form">
+                        <label>Company <input type="text" id="rsCompany" placeholder="e.g. Amazon, TCS, Flipkart" maxlength="80"></label>
+                        <label>Role <input type="text" id="rsRole" placeholder="e.g. Backend Engineer (SDE-2)" maxlength="80"></label>
+                        <label>Job description <span class="mk-opt">(optional, makes the "likely" questions better)</span>
+                            <textarea id="rsJd" placeholder="Paste the job description here"></textarea></label>
+                        <label>When is your interview? <span class="mk-opt">(for a prep plan; leave empty for research only)</span>
+                            <input type="datetime-local" id="rsWhen"></label>
+                        <div class="rs-chips">
+                            <button type="button" onclick="setWhen('rsWhen', 1)">In 1 h</button>
+                            <button type="button" onclick="setWhen('rsWhen', 3)">In 3 h</button>
+                            <button type="button" onclick="setWhen('rsWhen', 6)">In 6 h</button>
+                            <button type="button" onclick="setWhen('rsWhen', 'tomorrow')">Tomorrow 10 AM</button>
+                            <button type="button" onclick="setWhen('rsWhen', 72)">In 3 days</button>
+                            <button type="button" onclick="$('rsWhen').value = ''">Not sure</button>
+                        </div>
+                    </div>
+                    <button id="rsGoBtn" class="cp-start" onclick="runResearch()">Start my prep</button>
+                    <p class="mk-note">Free. It takes about 30&ndash;60 seconds. Results come from what candidates posted
+                        publicly, so they may be incomplete: treat them as a guide, not the exact questions.</p>
+                </section>
+
+                <!-- 2. Searching -->
+                <section id="rsBusy" class="mk-center hidden">
+                    <div class="cp-rings"><span></span><span></span><span></span></div>
+                    <div id="rsBusyText" class="cp-waiting-text">Searching&hellip;</div>
+                </section>
+
+                <!-- 3. Results -->
+                <section id="rsResults" class="cp-idle rs-results hidden">
+                    <div class="mk-title" id="rsTitle"></div>
+                    <p class="mk-sub" id="rsSummary"></p>
+
+                    <div class="rs-plan">
+                        <!-- No plan yet: ask when the interview is -->
+                        <div id="rsPlanMake">
+                            <div class="rs-plan-title">🗓️ Get a prep plan for the time you have</div>
+                            <div class="mk-form" style="margin-bottom:0.6rem">
+                                <label>When is your interview? <input type="datetime-local" id="rsWhen2"></label>
+                            </div>
+                            <div class="rs-chips">
+                                <button type="button" onclick="setWhen('rsWhen2', 1)">In 1 h</button>
+                                <button type="button" onclick="setWhen('rsWhen2', 3)">In 3 h</button>
+                                <button type="button" onclick="setWhen('rsWhen2', 6)">In 6 h</button>
+                                <button type="button" onclick="setWhen('rsWhen2', 'tomorrow')">Tomorrow 10 AM</button>
+                                <button type="button" onclick="setWhen('rsWhen2', 72)">In 3 days</button>
+                            </div>
+                            <button id="rsPlanBtn" class="cp-btn cp-btn-primary" style="width:100%;margin-top:0.7rem" onclick="makePlan()">Make my prep plan</button>
+                        </div>
+                        <!-- The plan -->
+                        <div id="rsPlan" class="hidden">
+                            <div class="rs-plan-head">
+                                <div><div class="rs-plan-title" style="margin:0">🗓️ Your prep plan</div>
+                                    <div id="rsPlanMeta" class="rs-plan-meta"></div></div>
+                                <span id="rsPlanProgress" class="rs-progress"></span>
+                            </div>
+                            <p id="rsPlanHeadline" class="rs-plan-headline"></p>
+                            <div id="rsPlanBlocks"></div>
+                            <div id="rsBeforeWrap" class="rs-block rs-type-review">
+                                <div class="rs-block-title">⏰ Last 15 minutes before the call</div>
+                                <ul id="rsBefore" class="rs-tips" style="margin-top:0.4rem"></ul>
+                            </div>
+                            <button type="button" class="rs-ans-btn" style="margin-top:0.6rem" onclick="rsReplan()">Interview time changed? Make a new plan</button>
+                        </div>
+                    </div>
+
+                    <div id="rsProcessWrap" class="hidden">
+                        <h3 class="rs-h">🧭 Interview rounds candidates describe</h3>
+                        <ol id="rsProcess" class="rs-process"></ol>
+                    </div>
+
+                    <h3 class="rs-h">💬 Asked at <span id="rsCompanyName"></span> <span class="rs-tag rs-tag-web">reported by candidates</span></h3>
+                    <p id="rsNoneFound" class="mk-note hidden" style="margin-top:0">We couldn't find questions candidates
+                        reported for this company and role. The "likely" questions below still help.</p>
+                    <ul id="rsReported" class="rs-list"></ul>
+
+                    <h3 class="rs-h">🎯 Likely for this role <span class="rs-tag">predicted from your JD and resume</span></h3>
+                    <ul id="rsLikely" class="rs-list"></ul>
+
+                    <div id="rsTipsWrap" class="hidden">
+                        <h3 class="rs-h">💡 Tips from candidates</h3>
+                        <ul id="rsTips" class="rs-tips"></ul>
+                    </div>
+
+                    <div id="rsSourcesWrap" class="hidden">
+                        <div class="mk-note" style="margin-top:1.25rem" id="rsSourcesLabel">Found on:</div>
+                        <div id="rsSources" class="mk-sources" style="justify-content:flex-start"></div>
+                        <iframe id="rsSearchFrame" class="mk-search-frame hidden" title="Google Search suggestions"
+                            sandbox="allow-popups allow-popups-to-escape-sandbox"></iframe>
+                    </div>
+
+                    <div class="rs-actions">
+                        <button id="rsPracticeBtn" class="cp-start" onclick="practiceResearch()">Practice selected in a mock</button>
+                        <button class="cp-btn" onclick="newResearch()">Research another company</button>
+                    </div>
+                    <p class="mk-note">Tick up to 5 questions to put them in your next mock interview.</p>
+                </section>
+            </main>
+            <div id="rsToast" class="cp-toast hidden" role="status"></div>
         </div>
     </div>
     <!-- VIEW: MOCK INTERVIEW -->
@@ -4108,7 +4363,7 @@
             }
 
             document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
-            document.body.classList.toggle('copilot-mode', viewId === 'app-view' || viewId === 'mock-view');
+            document.body.classList.toggle('copilot-mode', viewId === 'app-view' || viewId === 'mock-view' || viewId === 'research-view');
             rememberView(viewId);   // so a refresh brings the user back here
             const target = document.getElementById(viewId);
             if (target) {
@@ -4147,7 +4402,7 @@
         //   sessionStorage prapView     : which screen the user was on (this tab)
         //   sessionStorage prapAnswers  : the copilot answers shown so far (this tab)
         const SETUP_KEY = 'prapSetup.v1', VIEW_KEY = 'prapView', ANSWERS_KEY = 'prapAnswers', LISTENING_KEY = 'prapListening';
-        const RESTORABLE_VIEWS = ['dashboard-view', 'app-view', 'mock-view', 'resume-review-view'];
+        const RESTORABLE_VIEWS = ['dashboard-view', 'app-view', 'mock-view', 'resume-review-view', 'research-view'];
 
         // The signed-in account (the token's "sub"), so one person's resume is never shown to another
         function tokenOwner() {
@@ -4173,8 +4428,8 @@
         }
 
         function clearSavedSession() {
-            try { localStorage.removeItem(SETUP_KEY); } catch (e) { }
-            try { [VIEW_KEY, ANSWERS_KEY, LISTENING_KEY].forEach(k => sessionStorage.removeItem(k)); } catch (e) { }
+            try { localStorage.removeItem(SETUP_KEY); localStorage.removeItem('prapPrep.v1'); } catch (e) { }
+            try { [VIEW_KEY, ANSWERS_KEY, LISTENING_KEY, 'prapResearch'].forEach(k => sessionStorage.removeItem(k)); } catch (e) { }
         }
 
         function rememberView(viewId) {
@@ -4284,6 +4539,7 @@
             if (lastView === 'app-view' && loadSetup().resume) restoreCopilotScreen();
             else if (lastView === 'mock-view') openMock();
             else if (lastView === 'resume-review-view') showResumeReview();
+            else if (lastView === 'research-view') openResearch();
             else showView('dashboard-view');
             offerPlansAfterLogin();
         }
@@ -5703,6 +5959,396 @@
                     return;
                 }
                 cpPanel = null;
+                openMock();
+            });
+        }
+
+        // =====================================================================
+        // COMPANY RESEARCH: rounds + questions candidates reported (web) + likely questions (JD/resume)
+        // =====================================================================
+        const RESEARCH_KEY = 'prapResearch';   // last result of this tab (sessionStorage), so a refresh keeps it
+        const RS_MAX_PICKS = 5;
+        const rs = { data: null, picked: new Set(), answers: {}, busyTimers: [] };
+
+        function rsShow(section) {
+            ['rsSetup', 'rsBusy', 'rsResults'].forEach(id => $(id).classList.toggle('hidden', id !== section));
+            $('rsMain').scrollTop = 0;
+        }
+
+        function rsSetState(state, text) {
+            $('rsState').className = `cp-state ${state}`;
+            $('rsStateText').textContent = text;
+        }
+
+        function rsToast(message, ms = 3000) {
+            const el = $('rsToast');
+            el.textContent = message;
+            el.classList.remove('hidden');
+            clearTimeout(rsToast.timer);
+            rsToast.timer = setTimeout(() => el.classList.add('hidden'), ms);
+        }
+
+        // Research + plan are kept in this browser for the signed-in account (a plan can span days)
+        const PREP_KEY = 'prapPrep.v1';
+        function rsLoad() {
+            try {
+                const v = JSON.parse(localStorage.getItem(PREP_KEY) || 'null');
+                if (v && v.owner && v.owner === tokenOwner() && v.data && v.data.company) return v.data;
+            } catch (e) { }
+            try { return JSON.parse(sessionStorage.getItem(RESEARCH_KEY) || 'null'); } catch (e) { return null; }
+        }
+        function rsSave() {
+            const owner = tokenOwner();
+            if (!rs.data || !owner) return;
+            const { planq, ...data } = rs.data;   // planq is rebuilt on render
+            try { localStorage.setItem(PREP_KEY, JSON.stringify({ owner, data })); } catch (e) { }
+        }
+        function rsForget() {
+            try { localStorage.removeItem(PREP_KEY); sessionStorage.removeItem(RESEARCH_KEY); } catch (e) { }
+        }
+
+        // ----- "When is your interview?" -----
+        function toLocalInput(d) {
+            const p = (n) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+        }
+        function setWhen(inputId, preset) {
+            const d = new Date();
+            if (preset === 'tomorrow') { d.setDate(d.getDate() + 1); d.setHours(10, 0, 0, 0); }
+            else { d.setTime(d.getTime() + preset * 3600e3); d.setSeconds(0, 0); d.setMinutes(Math.ceil(d.getMinutes() / 5) * 5); }
+            $(inputId).value = toLocalInput(d);
+        }
+        function readWhen(inputId) {
+            const v = $(inputId).value;
+            if (!v) return null;
+            const t = new Date(v);
+            return isNaN(t.getTime()) ? null : t;
+        }
+        function whenProblem(when) {
+            const hours = (when.getTime() - Date.now()) / 3600e3;
+            if (hours < 0.5) return 'Pick an interview time at least 30 minutes from now.';
+            if (hours > 168) return 'Pick an interview time within the next 7 days.';
+            return '';
+        }
+        const fmtWhen = (d) => d.toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+
+        async function requestPlan(data, when) {
+            const res = await fetch('/api/prep-plan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                body: JSON.stringify({
+                    company: data.company, role: data.role || '', jd: data.jd || '',
+                    hours: (when.getTime() - Date.now()) / 3600e3,
+                    now_local: fmtWhen(new Date()), interview_local: fmtWhen(when),
+                    process: (data.process || []).map(p => p.what ? `${p.round}: ${p.what}` : p.round),
+                    reported: (data.reported || []).map(q => q.question),
+                    likely: (data.likely || []).map(q => q.question),
+                    tips: data.tips || [],
+                }),
+            });
+            if (res.status === 401) { handleAuthFailure(); throw new Error('auth'); }
+            const out = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(out.detail || "Couldn't make the plan. Please try again.");
+            return { ...out, created: Date.now(), interview_at: when.getTime(), done: [] };
+        }
+
+        function openResearch() {
+            showView('research-view');
+            const saved = rsLoad();
+            if (saved && saved.company) { renderResearch(saved); return; }
+            $('rsWhen').min = toLocalInput(new Date());
+            const setup = loadSetup();
+            if (!$('rsCompany').value) $('rsCompany').value = setup.company || '';
+            if (!$('rsRole').value) $('rsRole').value = setup.role || '';
+            if (!$('rsJd').value) $('rsJd').value = setup.jd || '';
+            rsShow('rsSetup');
+            rsSetState('idle', 'Interview prep');
+        }
+
+        function newResearch() {
+            if (rs.data && rs.data.plan && !confirm('Start over for another company? Your current prep plan will be removed.')) return;
+            rsForget();
+            rs.data = null;
+            rsShow('rsSetup');
+            rsSetState('idle', 'Interview prep');
+        }
+
+        async function runResearch() {
+            const company = $('rsCompany').value.trim(), role = $('rsRole').value.trim(), jd = $('rsJd').value.trim();
+            if (!company) { rsToast('Enter the company name.'); $('rsCompany').focus(); return; }
+            const when = readWhen('rsWhen');
+            if (when && whenProblem(when)) { rsToast(whenProblem(when), 4000); return; }
+            rsShow('rsBusy');
+            rsSetState('thinking', 'Searching…');
+            const steps = [[0, `Searching interview experiences shared about ${company}… (about 20–40 seconds)`],
+                [15000, 'Reading what candidates reported…'], [30000, 'Putting it together…']];
+            rs.busyTimers.forEach(clearTimeout);
+            rs.busyTimers = steps.map(([ms, text]) => setTimeout(() => { $('rsBusyText').textContent = text; }, ms));
+            try {
+                await restoreServerContext();   // so "likely" questions can use the saved resume
+                const res = await fetch('/api/company-research', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                    body: JSON.stringify({ company, role, jd }),
+                });
+                if (res.status === 401) { handleAuthFailure(); return; }
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.detail || 'Research failed. Please try again.');
+                data.jd = jd;
+                if (when) {
+                    rs.busyTimers.forEach(clearTimeout);
+                    $('rsBusyText').textContent = 'Making your prep plan… (about 20 seconds)';
+                    try { data.plan = await requestPlan(data, when); }
+                    catch (e) {
+                        if (e.message === 'auth') return;
+                        rsToast(`${e.message} The research is ready below.`, 5000);
+                    }
+                }
+                renderResearch(data);
+            } catch (e) {
+                rsShow('rsSetup');
+                rsSetState('idle', 'Interview prep');
+                rsToast(e && e.message && !/fetch/i.test(e.message) ? e.message : "Can't reach PrapAI. Check your connection.", 5000);
+            } finally {
+                rs.busyTimers.forEach(clearTimeout);
+            }
+        }
+
+        function rsItemHtml(kind, i, question, meta) {
+            const key = `${kind}-${i}`;
+            return `<li class="rs-item${rs.picked.has(key) ? ' picked' : ''}" id="rsItem-${key}">
+                <label class="rs-qrow"><input type="checkbox" ${rs.picked.has(key) ? 'checked' : ''}
+                    onchange="rsPick('${key}', this)" aria-label="Pick for mock interview">
+                    <span class="rs-q">${escapeHtml(question)}</span></label>
+                <div class="rs-meta">${meta}<button type="button" class="rs-ans-btn" id="rsAnsBtn-${key}"
+                    onclick="rsToggleAnswer('${kind}', ${i})">Show answer</button></div>
+                <div class="rs-answer hidden" id="rsAns-${key}"></div></li>`;
+        }
+
+        function renderResearch(data) {
+            rs.data = data;
+            rs.picked = new Set();
+            rs.answers = {};
+            $('rsTitle').textContent = data.role ? `${data.company} · ${data.role}` : data.company;
+            $('rsSummary').textContent = data.summary || '';
+            $('rsCompanyName').textContent = data.company;
+
+            const process = data.process || [];
+            $('rsProcessWrap').classList.toggle('hidden', !process.length);
+            $('rsProcess').innerHTML = process.map(p =>
+                `<li><b>${escapeHtml(p.round)}</b>${p.what ? ` <span>— ${escapeHtml(p.what)}</span>` : ''}</li>`).join('');
+
+            const reported = data.reported || [];
+            $('rsNoneFound').classList.toggle('hidden', reported.length > 0);
+            $('rsReported').innerHTML = reported.map((q, i) =>
+                rsItemHtml('reported', i, q.question, q.round ? `<span class="rs-tag">${escapeHtml(q.round)}</span>` : '')).join('');
+            $('rsLikely').innerHTML = (data.likely || []).map((q, i) =>
+                rsItemHtml('likely', i, q.question, q.why ? `<span>${escapeHtml(q.why)}</span>` : '')).join('');
+
+            const tips = data.tips || [];
+            $('rsTipsWrap').classList.toggle('hidden', !tips.length);
+            $('rsTips').innerHTML = tips.map(t => `<li>${escapeHtml(t)}</li>`).join('');
+
+            const sources = (data.sources || []).filter(s => /^https:\/\//i.test(s.uri || ''));
+            $('rsSources').innerHTML = sources.map(s =>
+                `<a href="${escapeHtml(s.uri)}" target="_blank" rel="noopener">${escapeHtml(s.title)}</a>`).join('');
+            // Google asks for its "Search suggestions" to be shown with web-grounded results
+            const frame = $('rsSearchFrame');
+            frame.classList.toggle('hidden', !data.search_html);
+            frame.srcdoc = data.search_html || '';
+            $('rsSourcesWrap').classList.toggle('hidden', !sources.length && !data.search_html);
+            $('rsSourcesLabel').textContent = data.found ? 'Found on:' : 'Pages searched (nothing reliable about this company was found):';
+
+            renderPlan();
+            rsSave();
+            rsShow('rsResults');
+            rsSetState('idle', `${reported.length} reported · ${(data.likely || []).length} likely`);
+        }
+
+        // ----- The prep plan -----
+        function renderPlan() {
+            const data = rs.data, plan = data && data.plan;
+            $('rsPlanMake').classList.toggle('hidden', !!plan);
+            $('rsPlan').classList.toggle('hidden', !plan);
+            data.planq = [];
+            [...rs.picked].filter(k => k.startsWith('planq-')).forEach(k => rs.picked.delete(k));   // old plan's questions
+            if (!plan) { $('rsWhen2').min = toLocalInput(new Date()); return; }
+            const fmtT = (ms) => new Date(ms).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+            const left = plan.interview_at - Date.now();
+            const leftText = left <= 0 ? 'interview time has passed'
+                : left < 3600e3 ? `${Math.round(left / 60000)} min to go` : left < 48 * 3600e3 ? `${Math.round(left / 3600e3)} h to go` : `${Math.round(left / 86400e3)} days to go`;
+            $('rsPlanMeta').textContent = `Interview ${fmtWhen(new Date(plan.interview_at))} · ${leftText}`;
+            $('rsPlanHeadline').textContent = plan.headline || '';
+            let t = plan.created, lastDay = 0, html = '';
+            plan.blocks.forEach((b, bi) => {
+                if (plan.by_day && b.day !== lastDay) {
+                    lastDay = b.day;
+                    const d = new Date(plan.created);
+                    d.setDate(d.getDate() + b.day - 1);
+                    html += `<div class="rs-day">Day ${b.day} · ${escapeHtml(d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }))}</div>`;
+                }
+                const time = plan.by_day ? `${b.minutes} min` : `${fmtT(t)} – ${fmtT(t + b.minutes * 60000)} · ${b.minutes} min`;
+                t += b.minutes * 60000;
+                const tasks = (b.tasks || []).map((task, ti) => {
+                    const id = `${bi}-${ti}`;
+                    return `<li><label><input type="checkbox" ${plan.done.includes(id) ? 'checked' : ''}
+                        onchange="rsTask('${id}', this.checked)"><span>${escapeHtml(task)}</span></label></li>`;
+                }).join('');
+                const qs = (b.questions || []).map(q => {
+                    data.planq.push({ question: q });
+                    return rsItemHtml('planq', data.planq.length - 1, q, '');
+                }).join('');
+                const mock = b.type === 'mock'
+                    ? `<button class="cp-btn cp-btn-primary rs-mock-btn" onclick="rsStartMock(${bi}, this)">Start this mock interview</button>` : '';
+                html += `<div class="rs-block rs-type-${escapeHtml(b.type)}"><div class="rs-block-time">${escapeHtml(time)}</div>
+                    <div class="rs-block-title">${escapeHtml(b.title)}</div>
+                    ${b.why ? `<div class="rs-block-why">${escapeHtml(b.why)}</div>` : ''}
+                    ${tasks ? `<ul class="rs-tasks">${tasks}</ul>` : ''}${qs ? `<ul class="rs-list">${qs}</ul>` : ''}${mock}</div>`;
+            });
+            $('rsPlanBlocks').innerHTML = html;
+            const before = plan.before_call || [];
+            $('rsBeforeWrap').classList.toggle('hidden', !before.length);
+            $('rsBefore').innerHTML = before.map(x => `<li>${escapeHtml(x)}</li>`).join('');
+            updatePlanProgress();
+        }
+
+        function updatePlanProgress() {
+            const plan = rs.data && rs.data.plan;
+            if (!plan) return;
+            const total = plan.blocks.reduce((n, b) => n + (b.tasks || []).length, 0);
+            $('rsPlanProgress').textContent = `${plan.done.length} / ${total} done`;
+        }
+
+        function rsTask(id, on) {
+            const plan = rs.data && rs.data.plan;
+            if (!plan) return;
+            plan.done = plan.done.filter(x => x !== id);
+            if (on) plan.done.push(id);
+            rsSave();
+            updatePlanProgress();
+        }
+
+        async function makePlan() {
+            const when = readWhen('rsWhen2');
+            if (!when) { rsToast('Pick when your interview is first.'); return; }
+            if (whenProblem(when)) { rsToast(whenProblem(when), 4000); return; }
+            await withBusyButton($('rsPlanBtn'), 'Making your plan… (about 20 s)', async () => {
+                try {
+                    rs.data.plan = await requestPlan(rs.data, when);
+                } catch (e) {
+                    if (e.message !== 'auth') rsToast(e && e.message && !/fetch/i.test(e.message) ? e.message : "Can't reach PrapAI.", 5000);
+                    return;
+                }
+                renderPlan();
+                rsSave();
+            });
+        }
+
+        function rsReplan() {
+            if (!confirm('Make a new plan? Your ticks on this one will be removed.')) return;
+            rs.data.plan = null;
+            renderPlan();
+            rsSave();
+        }
+
+        // A plan's mock block: practise its questions (or the most-reported ones) in a mock interview
+        function rsStartMock(bi, btn) {
+            const plan = rs.data && rs.data.plan;
+            if (!plan || !plan.blocks[bi]) return;
+            let questions = (plan.blocks[bi].questions || []).slice(0, RS_MAX_PICKS);
+            if (!questions.length) questions = (rs.data.reported || []).slice(0, RS_MAX_PICKS).map(q => q.question);
+            return rsSendToMock(questions, btn);
+        }
+
+        function rsQuestion(kind, i) {
+            const list = (rs.data && rs.data[kind]) || [];
+            return list[i] ? list[i].question : '';
+        }
+
+        function rsPick(key, box) {
+            if (box.checked && rs.picked.size >= RS_MAX_PICKS) {
+                box.checked = false;
+                rsToast(`Pick up to ${RS_MAX_PICKS} questions for one mock interview.`);
+                return;
+            }
+            if (box.checked) rs.picked.add(key); else rs.picked.delete(key);
+            $(`rsItem-${key}`).classList.toggle('picked', box.checked);
+            $('rsPracticeBtn').textContent = rs.picked.size
+                ? `Practice ${rs.picked.size} selected in a mock` : 'Practice selected in a mock';
+        }
+
+        function rsAnswerHtml(text) {
+            const p = parseAnswer(text);
+            if (!p.structured) return `<p>${safeInline(text)}</p>`;
+            const rest = p.sayRest ? ` <span style="color:var(--cp-muted)">${safeInline(p.sayRest)}</span>` : '';
+            let html = `<div><b>${safeInline(p.sayLead)}</b>${rest}</div>`;
+            if (p.points.length) html += `<ul>${p.points.map(x => `<li>${safeInline(x)}</li>`).join('')}</ul>`;
+            const code = p.code || p.detail;
+            if (code) html += `<details style="margin-top:0.45rem"><summary class="rs-ans-btn">Code example</summary>${safeMarkdown(code)}</details>`;
+            if (p.project) html += `<div class="rs-proj">🔗 ${safeInline(p.project)}</div>`;
+            return html;
+        }
+
+        async function rsToggleAnswer(kind, i) {
+            const key = `${kind}-${i}`;
+            const box = $(`rsAns-${key}`), btn = $(`rsAnsBtn-${key}`);
+            if (!box.classList.contains('hidden')) { box.classList.add('hidden'); btn.textContent = 'Show answer'; return; }
+            box.classList.remove('hidden');
+            btn.textContent = 'Hide answer';
+            if (rs.answers[key]) { box.innerHTML = rsAnswerHtml(rs.answers[key]); return; }
+            box.innerHTML = '<span style="color:var(--cp-muted)">Writing an answer from your resume…</span>';
+            const data = rs.data;
+            try {
+                const res = await fetch('/api/preview-answer', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                    body: JSON.stringify({ question: rsQuestion(kind, i), company: data.company, jd: data.jd || '' }),
+                });
+                if (res.status === 401) { handleAuthFailure(); return; }
+                const out = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(out.detail || "Couldn't write the answer.");
+                if (rs.data !== data) return;   // a new search replaced this list
+                rs.answers[key] = out.answer || '';
+                box.innerHTML = rsAnswerHtml(rs.answers[key]);
+            } catch (e) {
+                if (rs.data !== data) return;
+                box.innerHTML = `<span style="color:#fca5a5">${escapeHtml(e && e.message && !/fetch/i.test(e.message) ? e.message : "Can't reach PrapAI.")}</span>`;
+                btn.textContent = 'Show answer';
+                setTimeout(() => box.classList.add('hidden'), 3500);
+            }
+        }
+
+        // Put the ticked questions into the next mock interview, with this company and role filled in
+        async function practiceResearch() {
+            const data = rs.data;
+            if (!data) return;
+            const questions = [...rs.picked].map(key => {
+                const [kind, i] = key.split('-');
+                return rsQuestion(kind, Number(i));
+            }).filter(Boolean);
+            if (!questions.length) { rsToast('Tick the questions you want to practise first (up to 5).'); return; }
+            return rsSendToMock(questions, $('rsPracticeBtn'));
+        }
+
+        async function rsSendToMock(questions, btn) {
+            const data = rs.data;
+            await withBusyButton(btn, 'Opening…', async () => {
+                try {
+                    const res = await fetch('/api/mock/practice', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                        body: JSON.stringify({ questions }),
+                    });
+                    if (res.status === 401) { handleAuthFailure(); return; }
+                    if (!res.ok) throw new Error();
+                    pendingPracticeCount = (await res.json()).saved || 0;
+                } catch (e) {
+                    rsToast("Couldn't set up the practice. Please try again.");
+                    return;
+                }
+                $('mkCompany').value = data.company;
+                if (data.role) $('mkRole').value = data.role;
+                if (data.jd) $('mkJd').value = data.jd;
                 openMock();
             });
         }
