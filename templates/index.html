@@ -3174,6 +3174,13 @@
         }
         .mk-form textarea { min-height: 110px; resize: vertical; }
         .mk-note { font-size: 0.85rem; color: var(--cp-muted); margin-top: 0.75rem; line-height: 1.5; }
+        .jd-link-status { font-size: 0.85rem; line-height: 1.45; margin-top: 0.4rem; color: var(--text-secondary); }
+        .jd-link-status.ok { color: var(--success); }
+        .jd-link-status.err { color: var(--danger); }
+        .jd-link-status .jd-spin { display: inline-block; width: 0.8em; height: 0.8em; margin-right: 0.4em; vertical-align: -0.1em;
+            border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: jdspin 0.8s linear infinite; }
+        @keyframes jdspin { to { transform: rotate(360deg); } }
+        textarea.jd-reading { opacity: 0.6; }
         .mk-center { text-align: center; max-width: 560px; margin: 0 auto; padding-top: 1.5rem; }
         .mk-center .cp-rings { margin: 0 auto 1.5rem; }
         .mk-sources { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: center; margin: 0.75rem 0; }
@@ -7461,6 +7468,89 @@
             try { await navigator.clipboard.writeText(lines.join('\n')); notify('Report copied', 'success'); }
             catch (e) { notify("Couldn't copy. Select the text and copy it instead.", 'error'); }
         }
+
+        // JOB LINKS: paste a link to the job post (LinkedIn, company careers page, ...) into any job-description
+        // box and the server reads the description off the page. Company/role boxes are filled only if empty.
+        const JD_LINK_RE = /^\s*((https?:\/\/|www\.)[^\s]+)\s*$/i;
+        const JD_LINK_HINT = 'Paste the job description, or a link to the job post (LinkedIn, company careers page…)';
+        function wireJdLink(jdId, companyId, roleId) {
+            const box = document.getElementById(jdId);
+            if (!box || box.dataset.jdLink) return;
+            box.dataset.jdLink = '1';
+            box.placeholder = JD_LINK_HINT;
+            const status = document.createElement('div');
+            status.className = 'jd-link-status hidden';
+            status.setAttribute('aria-live', 'polite');
+            box.insertAdjacentElement('afterend', status);
+            const say = (html, kind = '') => {
+                status.className = `jd-link-status ${kind}`;
+                status.innerHTML = html;
+            };
+            let reading = null;
+            box.addEventListener('input', () => {
+                const m = box.value.match(JD_LINK_RE);
+                if (!m) { if (!reading) status.className = 'jd-link-status hidden'; return; }
+                if (reading === m[1]) return;
+                readJdLink(m[1]);
+            });
+            async function readJdLink(url) {
+                reading = url;
+                box.readOnly = true;
+                box.classList.add('jd-reading');
+                say('<span class="jd-spin"></span>Reading the job post… (usually 5-15 seconds)');
+                const slow = setTimeout(() => {
+                    if (reading === url) say('<span class="jd-spin"></span>This site is slow to read, trying another way… (up to 30 seconds)');
+                }, 15000);
+                try {
+                    const ctl = new AbortController();
+                    const stop = setTimeout(() => ctl.abort(), 70000);
+                    const res = await fetch('/api/jd/from-url', {
+                        method: 'POST', signal: ctl.signal,
+                        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                        body: JSON.stringify({ url }),
+                    }).finally(() => clearTimeout(stop));
+                    if (res.status === 401) { handleAuthFailure(); return; }
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) throw new Error(data.detail || "Couldn't read that link. Paste the description instead.");
+                    if (reading !== url) return;
+                    box.value = data.jd;
+                    box.dispatchEvent(new Event('input', { bubbles: true }));   // drafts, scores, etc. see the new text
+                    const filled = [];
+                    for (const [id, value, label] of [[companyId, data.company, 'company'], [roleId, data.role, 'role']]) {
+                        const input = id && document.getElementById(id);
+                        if (input && value && !input.value.trim()) {
+                            input.value = value;
+                            input.dispatchEvent(new Event('input', { bubbles: true }));
+                            filled.push(label);
+                        }
+                    }
+                    let host = url;
+                    try { host = new URL(/^https?:/i.test(url) ? url : `https://${url}`).hostname.replace(/^www\./, ''); } catch (e) { }
+                    const note = data.source === 'ai'
+                        ? 'written up from the page by AI, so give it a quick check'
+                        : 'check it and edit anything you like';
+                    say(`✓ Got the job description from ${escapeHtml(host)}${filled.length ? ` (and the ${filled.join(' and ')})` : ''}: ${note}.`, 'ok');
+                } catch (e) {
+                    if (reading !== url) return;
+                    box.value = '';   // never send a bare link as the "job description"
+                    box.dispatchEvent(new Event('input', { bubbles: true }));
+                    const why = e.name === 'AbortError' ? 'That page took too long to read. Paste the description instead.' : e.message;
+                    say(`${escapeHtml(why)}`, 'err');
+                } finally {
+                    clearTimeout(slow);
+                    if (reading === url) {
+                        reading = null;
+                        box.readOnly = false;
+                        box.classList.remove('jd-reading');
+                    }
+                }
+            }
+        }
+        wireJdLink('jdInput', 'companyInput');
+        wireJdLink('mkJd', 'mkCompany', 'mkRole');
+        wireJdLink('rsJd', 'rsCompany', 'rsRole');
+        wireJdLink('tlJd', 'tlCompany', 'tlRole');
+        wireJdLink('reviewJdInput');
 
         // Save what the user types in the setup forms (survives a refresh)
         saveDraftOnInput('companyInput', 'company');

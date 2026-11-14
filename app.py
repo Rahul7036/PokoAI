@@ -2283,6 +2283,339 @@ class PreviewAnswerRequest(BaseModel):
     jd: str = ""
 
 
+# ---------------------------------------------------------------------------
+# JOB DESCRIPTION FROM A LINK: the user pastes a job-post URL instead of the text
+# ---------------------------------------------------------------------------
+import html as _html
+import socket
+import ipaddress
+from html.parser import HTMLParser
+from urllib.parse import urlparse, urljoin, parse_qs
+
+JD_URL_DAILY_LIMIT = 40
+JD_URL_CACHE = {}                  # url -> (saved_at, result); in memory
+JD_URL_CACHE_SECONDS = 24 * 3600
+JD_URL_MAX_BYTES = 3_000_000
+JD_URL_MIN_CHARS = 200             # less than this is not a real job description
+JD_FETCH_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+                  "Chrome/124.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-IN,en;q=0.9",
+}
+
+
+class JdUrlRequest(BaseModel):
+    url: str
+
+
+class JdUrlError(Exception):
+    """A problem we can explain to the user in plain words."""
+
+
+def _check_public_url(url: str) -> str:
+    """Only http(s) links to public internet hosts (never our own server or a private network)."""
+    p = urlparse(url)
+    if p.scheme not in ("http", "https") or not p.hostname:
+        raise JdUrlError("That doesn't look like a web link. It should start with https://")
+    if p.port not in (None, 80, 443):
+        raise JdUrlError("That link can't be opened.")
+    try:
+        infos = socket.getaddrinfo(p.hostname, None)
+    except socket.gaierror:
+        raise JdUrlError("That website doesn't exist. Check the link.")
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if not ip.is_global:
+            raise JdUrlError("That link can't be opened.")
+    return url
+
+
+def _fetch_public(url: str) -> tuple:
+    """GET a public page, checking every redirect hop. Returns (final_url, text)."""
+    for _ in range(5):
+        _check_public_url(url)
+        r = requests.get(url, headers=JD_FETCH_HEADERS, timeout=10, allow_redirects=False, stream=True)
+        if r.is_redirect or r.status_code in (301, 302, 303, 307, 308):
+            url = urljoin(url, r.headers.get("location", ""))
+            r.close()
+            continue
+        if r.status_code >= 400:
+            r.close()
+            raise JdUrlError(f"blocked:{r.status_code}")
+        body = b""
+        for part in r.iter_content(65536):
+            body += part
+            if len(body) > JD_URL_MAX_BYTES:
+                break
+        r.close()
+        # requests guesses ISO-8859-1 when the server names no charset; job sites are almost always UTF-8
+        charset = r.encoding if "charset" in r.headers.get("content-type", "").lower() else "utf-8"
+        return url, body.decode(charset or "utf-8", errors="replace")
+    raise JdUrlError("That link redirects too many times.")
+
+
+class _TextExtractor(HTMLParser):
+    """HTML -> readable text: drops scripts/menus, keeps line breaks at block tags."""
+    SKIP = {"script", "style", "noscript", "svg", "head", "nav", "footer", "template", "iframe", "button", "form"}
+    BLOCK = {"p", "div", "br", "li", "ul", "ol", "h1", "h2", "h3", "h4", "h5", "h6", "tr", "section", "article"}
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.out, self.skip = [], 0
+
+    def handle_starttag(self, tag, attrs):
+        if tag in self.SKIP:
+            self.skip += 1
+        elif tag == "li":
+            self.out.append("\n- ")
+        elif tag in self.BLOCK:
+            self.out.append("\n")
+
+    def handle_endtag(self, tag):
+        if tag in self.SKIP:
+            self.skip = max(0, self.skip - 1)
+        elif tag in self.BLOCK:
+            self.out.append("\n")
+
+    def handle_data(self, data):
+        if not self.skip:
+            self.out.append(data)
+
+
+def _html_to_text(markup: str) -> str:
+    parser = _TextExtractor()
+    try:
+        parser.feed(markup)
+        parser.close()
+    except Exception:
+        pass
+    text = "".join(parser.out).replace("\xa0", " ")
+    lines = [re.sub(r"[ \t]+", " ", line).strip() for line in text.split("\n")]
+    text = "\n".join(line for line in lines if line and line != "-")
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
+
+
+def _find_job_posting(markup: str):
+    """The schema.org JobPosting most job boards embed for Google Jobs (LinkedIn, Greenhouse, Lever, Workday, ...)."""
+    for raw in re.findall(r'<script[^>]+application/ld\+json[^>]*>(.*?)</script>', markup, re.S | re.I):
+        try:
+            data = json.loads(raw.strip(), strict=False)
+        except Exception:
+            continue
+        stack = [data]
+        while stack:
+            item = stack.pop()
+            if isinstance(item, list):
+                stack.extend(item)
+            elif isinstance(item, dict):
+                kind = item.get("@type")
+                if kind == "JobPosting" or (isinstance(kind, list) and "JobPosting" in kind):
+                    return item
+                stack.extend(v for v in item.values() if isinstance(v, (list, dict)))
+    return None
+
+
+def _posting_result(posting: dict) -> dict:
+    org = posting.get("hiringOrganization")
+    company = org.get("name") if isinstance(org, dict) else (org if isinstance(org, str) else "")
+    desc = _html_to_text(_html.unescape(str(posting.get("description") or "")))
+    parts = [desc]
+    for field, label in (("qualifications", "Qualifications"), ("responsibilities", "Responsibilities"),
+                         ("skills", "Skills"), ("experienceRequirements", "Experience")):
+        value = posting.get(field)
+        if isinstance(value, str) and value.strip() and value.strip()[:80] not in desc:
+            parts.append(f"{label}:\n{_html_to_text(_html.unescape(value))}")
+    return {"company": str(company or "").strip(), "role": str(posting.get("title") or "").strip(),
+            "jd": "\n\n".join(p for p in parts if p).strip()}
+
+
+def _known_board_url(url: str):
+    """Job boards whose public pages are empty shells but expose the post another way."""
+    p = urlparse(url)
+    host = (p.hostname or "").lower()
+    if host.endswith("linkedin.com"):
+        job_id = parse_qs(p.query).get("currentJobId", [None])[0]
+        m = re.search(r"/jobs/view/(?:[^/]*?-)?(\d{6,})", p.path)
+        job_id = job_id or (m.group(1) if m else None)
+        if job_id and job_id.isdigit():
+            return f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_id}"
+    m = re.match(r"^/([^/]+)/([0-9a-f-]{20,})", p.path)
+    if host == "jobs.lever.co" and m:
+        return f"https://api.lever.co/v0/postings/{m.group(1)}/{m.group(2)}"
+    m = re.search(r"^/([^/]+)/jobs/(\d+)", p.path)
+    if host in ("boards.greenhouse.io", "job-boards.greenhouse.io") and m:
+        return f"https://boards-api.greenhouse.io/v1/boards/{m.group(1)}/jobs/{m.group(2)}"
+    return None
+
+
+def _read_known_board(api_url: str):
+    final, body = _fetch_public(api_url)
+    host = urlparse(api_url).hostname
+    if host == "api.lever.co":
+        d = json.loads(body)
+        lists = "\n\n".join(f"{x.get('text', '')}:\n{_html_to_text(x.get('content', ''))}" for x in d.get("lists") or [])
+        jd = "\n\n".join(t for t in (d.get("descriptionPlain") or _html_to_text(d.get("description", "")), lists,
+                                     d.get("additionalPlain") or "") if t)
+        slug = urlparse(api_url).path.split("/")[3]
+        return {"company": slug.replace("-", " ").title(), "role": d.get("text", ""), "jd": jd.strip()}
+    if host == "boards-api.greenhouse.io":
+        d = json.loads(body)
+        return {"company": d.get("company_name", ""), "role": d.get("title", ""),
+                "jd": _html_to_text(_html.unescape(d.get("content", "")))}
+    # LinkedIn guest page: a fragment with the title, company and the description markup
+    posting = _find_job_posting(body)
+    if posting:
+        return _posting_result(posting)
+    m = re.search(r'class="[^"]*(?:show-more-less-html__markup|description__text)[^"]*"[^>]*>(.*?)</(?:div|section)>',
+                  body, re.S)
+    title = re.search(r'class="[^"]*top-card-layout__title[^"]*"[^>]*>(.*?)<', body, re.S)
+    company = re.search(r'class="[^"]*topcard__org-name-link[^"]*"[^>]*>(.*?)<', body, re.S)
+    return {"company": _html.unescape(company.group(1)).strip() if company else "",
+            "role": _html.unescape(title.group(1)).strip() if title else "",
+            "jd": _html_to_text(m.group(1)) if m else ""}
+
+
+def _page_title(markup: str) -> str:
+    m = re.search(r'<meta[^>]+property="og:title"[^>]+content="([^"]*)"', markup, re.I) or \
+        re.search(r"<title[^>]*>(.*?)</title>", markup, re.I | re.S)
+    return _html.unescape(m.group(1)).strip()[:200] if m else ""
+
+
+async def _ai_pick_jd(page_text: str, title: str) -> dict:
+    """The page has the job somewhere among menus and other listings: let the AI copy out just the job."""
+    prompt = f"""This is the text of a web page that should contain ONE job posting. Page title: {title or "(none)"}
+
+PAGE TEXT:
+{page_text[:30000]}
+
+Return JSON: {{"found": true|false, "company": "...", "role": "...", "jd": "..."}}
+- "jd": the job description COPIED from the page, as written: about the role, responsibilities, requirements,
+  skills, qualifications, experience, location, benefits. Keep its headings and bullet points ("- ").
+  Do NOT summarise or reword it, and do NOT add anything that is not on the page.
+- Leave out menus, cookie banners, "similar jobs", sign-up prompts and other site text.
+- "found": false if the page has no job description (a login wall, an error, a search page, a list of many jobs).
+- "company" / "role": as on the page, or "" if not shown."""
+    try:   # fast model first: copying a long description is mostly output speed
+        resp = await ai_client.aio.models.generate_content(
+            model=COPILOT_MODEL, contents=prompt,
+            config=genai_types.GenerateContentConfig(response_mime_type="application/json"))
+        reply = resp.text or ""
+    except Exception as e:
+        logger.info(f"JD pick on '{COPILOT_MODEL}' failed ({e}); using the main model")
+        reply = await generate_text_reliably(prompt, json_mode=True)
+    data = _parse_model_json(reply)
+    if not isinstance(data, dict) or not data.get("found"):
+        return {"company": "", "role": "", "jd": ""}
+    return {"company": str(data.get("company") or ""), "role": str(data.get("role") or ""),
+            "jd": str(data.get("jd") or "")}
+
+
+async def _ai_read_url(url: str) -> dict:
+    """Last resort for pages we can't read ourselves (built in the browser, or blocking servers): Gemini's URL reader."""
+    # Gemini refuses to copy pages it opens word for word (finish reason RECITATION), so ask for full notes
+    # in its own words that keep every concrete detail exactly.
+    prompt = (f"Open this job posting: {url}\n"
+              "Write up the job in your own words, completely, in exactly this format:\n"
+              "COMPANY: <company or blank>\nROLE: <job title or blank>\nJD:\n"
+              "About the role: <2-3 sentences>\nResponsibilities:\n- <every responsibility listed>\n"
+              "Requirements:\n- <every required skill, years of experience, degree>\nNice to have:\n- <preferred skills>\n"
+              "Location and other details: <location, work mode, anything else listed>\n"
+              "Keep every technology, tool, skill and number EXACTLY as the page names it. Include nothing that is "
+              "not on the page. If the page can't be opened or has no job description, reply only: NOT_FOUND")
+    config = genai_types.GenerateContentConfig(tools=[genai_types.Tool(url_context=genai_types.UrlContext())])
+    # The fast copilot model copies a long page in seconds; the main model is the rate-limit fallback
+    attempts = [(COPILOT_MODEL, 0), (COPILOT_MODEL, 3), (model_name, 2)]
+    for n, (model, pause) in enumerate(attempts):
+        await asyncio.sleep(pause)
+        try:
+            resp = await ai_client.aio.models.generate_content(model=model, contents=prompt, config=config)
+            break
+        except Exception as e:
+            if not _is_rate_limited(e) or n == len(attempts) - 1:
+                raise
+    # Only trust the reply if Gemini actually managed to open the page
+    meta = resp.candidates[0].url_context_metadata if resp.candidates else None
+    opened = any("SUCCESS" in str(getattr(u, "url_retrieval_status", "")) for u in (getattr(meta, "url_metadata", None) or []))
+    text = (resp.text or "").replace("**", "").strip()
+    split = re.split(r"^\s*JD\s*:\s*", text, maxsplit=1, flags=re.M)
+    if not opened or "NOT_FOUND" in text[:40] or len(split) < 2:
+        return {"company": "", "role": "", "jd": ""}
+    head, jd = split
+    company = re.search(r"COMPANY:[ \t]*(.*)", head)
+    role = re.search(r"ROLE:[ \t]*(.*)", head)
+    return {"company": company.group(1).strip() if company else "", "role": role.group(1).strip() if role else "",
+            "jd": jd.strip()}
+
+
+def _tidy_jd_result(result: dict, source: str) -> dict:
+    lines = [re.sub(r"[ \t\xa0]+", " ", line).strip() for line in result.get("jd", "").split("\n")]
+    jd = re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+    return {"jd": jd[:CONTEXT_MAX_JD_CHARS], "company": result.get("company", "").strip()[:80],
+            "role": result.get("role", "").strip()[:80], "source": source}
+
+
+async def read_job_post(url: str) -> dict:
+    """Try the cheap, exact ways first (structured data, known boards), then the AI."""
+    known = _known_board_url(url)
+    if known:
+        try:
+            r = await asyncio.to_thread(_read_known_board, known)
+            if len(r["jd"]) >= JD_URL_MIN_CHARS:
+                return _tidy_jd_result(r, "page")
+        except Exception as e:
+            logger.info(f"JD board API failed for {known}: {e}")
+    page = None
+    try:
+        final, page = await asyncio.to_thread(_fetch_public, url)
+    except JdUrlError as e:
+        if not str(e).startswith("blocked:"):
+            raise
+    except requests.RequestException as e:
+        logger.info(f"JD fetch failed for {url}: {e}")
+    if page:
+        posting = _find_job_posting(page)
+        if posting:
+            r = _posting_result(posting)
+            if len(r["jd"]) >= JD_URL_MIN_CHARS:
+                return _tidy_jd_result(r, "page")
+        text = _html_to_text(page)
+        if len(text) >= JD_URL_MIN_CHARS:
+            r = await _ai_pick_jd(text, _page_title(page))
+            if len(r["jd"]) >= JD_URL_MIN_CHARS:
+                return _tidy_jd_result(r, "page")
+    r = await _ai_read_url(url)
+    if len(r["jd"]) >= JD_URL_MIN_CHARS:
+        return _tidy_jd_result(r, "ai")
+    raise JdUrlError("Couldn't read a job description from that page (it may need a login). "
+                     "Open the link, copy the description and paste it here.")
+
+
+@app.post("/api/jd/from-url")
+async def jd_from_url(data: JdUrlRequest, current_user: models.User = Depends(get_current_user_detached)):
+    url = data.url.strip()[:2000]
+    if re.match(r"^[a-z][a-z0-9+.-]*:", url, re.I) and not re.match(r"^https?://", url, re.I):
+        raise HTTPException(status_code=422, detail="That doesn't look like a web link. It should start with https://")
+    if not re.match(r"^https?://", url, re.I):
+        url = "https://" + url      # "www.company.com/jobs/1" pasted without the https://
+    cached = JD_URL_CACHE.get(url)
+    if cached and time.time() - cached[0] < JD_URL_CACHE_SECONDS:
+        return cached[1]
+    if not ai_client:
+        raise HTTPException(status_code=503, detail="AI is not available right now.")
+    if not use_daily_allowance("jd_url", current_user.id, JD_URL_DAILY_LIMIT):
+        raise HTTPException(status_code=429, detail="You've read a lot of job links today. Please paste the description instead.")
+    try:
+        result = await read_job_post(url)
+    except JdUrlError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except Exception as e:
+        logger.error(f"Reading job link failed for {url}: {e}")
+        raise HTTPException(status_code=502, detail="Couldn't open that link right now. Paste the description instead.")
+    JD_URL_CACHE[url] = (time.time(), result)
+    return result
+
+
 @app.post("/api/preview-answer")
 async def preview_answer(data: PreviewAnswerRequest, current_user: models.User = Depends(get_current_user_detached)):
     """A suggested answer to one practice question, in the copilot's SAY / points / CODE / PROJECT format."""
