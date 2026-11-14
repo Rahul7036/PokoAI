@@ -138,7 +138,7 @@ async def stream_copilot_answer(prompt: str):
         yield piece
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File, Form, Depends, HTTPException, status
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pypdf import PdfReader
@@ -564,7 +564,7 @@ def _parse_model_json(text: str):
         text = text.split("\n", 1)[1] if "\n" in text else text[3:]
         if text.rstrip().endswith("```"):
             text = text.rstrip()[:-3]
-    return json.loads(text)
+    return json.loads(text, strict=False)   # strict=False: allow raw newlines/tabs inside strings (models emit them)
 
 # Size caps for text the browser sends back (a resume is typically 3-10k characters)
 CONTEXT_MAX_RESUME_CHARS = 20000
@@ -949,11 +949,14 @@ def build_answer_prompt(text, history, ctx, force=False, variant=False, answer_a
         - <talking point, max 12 words>
         - <talking point, max 12 words>
         (3 to 5 talking points: the key facts to mention next; add to SAY, never repeat it)
+        DESIGN:
+        <ONLY for system design / architecture / low-level (OOP) design questions, and for "explain your
+        project's architecture" questions. Everything else: write exactly NONE. Format is described below.>
         CODE:
         <For technical questions: one short code snippet (5-15 lines) in a ```fenced block``` (language from
         the JD, default Python), with a short comment on the key lines explaining in simple words what each
-        step does. No prose outside the code block, except a "Time: O(...), Space: O(...)" line for
-        algorithm questions. For behavioral, HR, small talk, or a topic code can't show, write exactly: NONE>
+        step does. No prose outside the code block. Algorithm / DSA questions: START with one line
+        "Time: O(...), Space: O(...)", then the code block. For behavioral, HR, small talk, or a topic code can't show, write exactly: NONE>
         PROJECT:
         <1-2 first-person sentences the candidate can add to connect this answer to a real project or job on
         the resume ("In my ... project, I used this to ..."), using only resume facts. If nothing on the
@@ -965,6 +968,44 @@ def build_answer_prompt(text, history, ctx, force=False, variant=False, answer_a
           resume into SAY, the talking points or CODE. The resume link goes only in PROJECT.
         - Experience questions ("tell me about yourself / your project / your role", behavioral questions):
           base every section on the resume; PROJECT is NONE.
+        - DSA / coding questions ("reverse a linked list", "two sum", "find the longest substring..."): SAY
+          gives the approach (the pattern, e.g. two pointers / sliding window / BFS) and why it works; talking
+          points cover edge cases and the brute-force vs optimal trade-off; CODE is the COMPLETE working
+          solution; DESIGN is NONE.
+        - SYSTEM DESIGN questions ("design a URL shortener / WhatsApp / Uber / rate limiter / notification
+          system", "how would you build/scale X"): SAY is a 3-4 sentence overview of the design; talking
+          points are the order you'd walk the interviewer through it; CODE is NONE unless a small snippet
+          really helps; DESIGN uses exactly these Markdown parts, kept short and scannable:
+            ### Clarify first
+            - 2-3 questions to ask the interviewer before designing (scale, users, must-have features)
+            ### Requirements
+            - **Functional:** the 3-5 core features
+            - **Non-functional:** e.g. latency, availability, consistency, durability
+            - **Scale:** a quick back-of-the-envelope estimate (users, requests per second, storage)
+            ### Architecture
+            a ```mermaid``` block with the high-level diagram (rules below), then one short line per main
+            component saying what it does
+            ### Database
+            which database(s) and why (SQL vs NoSQL), then a ```sql``` block with the 2-4 key tables and
+            their main columns and indexes (or the key/document shape for NoSQL)
+            ### APIs
+            a ```http``` block with the 3-5 main endpoints, one per line, e.g.
+            POST /api/v1/urls  {{"long_url": "..."}}  -> 201 {{"short_url": "..."}}
+            ### Stress these
+            - 4-6 points that impress: caching, sharding/partitioning, queues, replication, consistency
+              trade-offs, failure handling, rate limiting, monitoring, as they apply to THIS system
+        - LOW-LEVEL / OOP design questions ("design a parking lot / LRU cache / elevator classes"): DESIGN has
+          ### Requirements, ### Classes (a ```mermaid``` classDiagram with the main classes, key fields and
+          methods, and their relationships), and ### Patterns (design patterns used and why); CODE is the class
+          skeleton with the key methods.
+        - "Explain your project's architecture": DESIGN has only ### Architecture with a ```mermaid``` diagram
+          of components the RESUME names (never invent components), then one line per component.
+        - MERMAID RULES (or the diagram won't draw): start with "flowchart LR" (or "classDiagram" for
+          classes); 5-12 nodes; node ids are letters and digits only; EVERY label in double quotes, e.g.
+          A["Load balancer"] or DB[("Orders DB")]; arrows are --> with an optional plain label like
+          -->|"writes"|; no styling, no click, no %% directives.
+        - Every piece of code, SQL, API list or command goes in a ```fenced block``` with its language, never
+          as a paragraph.
 
         RULES:
         - In SAY and in every talking point, bold the 1-2 most important keywords (skills, tools, numbers,
@@ -979,7 +1020,7 @@ def build_answer_prompt(text, history, ctx, force=False, variant=False, answer_a
           about the budgeted range or uses the placeholder "[your target range]". Talking points cover total
           compensation (base, bonus, equity, benefits), flexibility, and the value the candidate brings.
         - Coding questions: SAY gives the approach in one line, then walks through the idea in plain words;
-          talking points cover edge cases; CODE is the solution with comments.
+          talking points cover edge cases; CODE is the complete solution with comments.
         - Greetings or small talk ("how are you?", "can you hear me?"): output only one short SAY sentence.
         - Sound human and conversational, not like a textbook. No filler like "Great question".
         - Plain Markdown only. No LaTeX or $...$ math; write complexity like O(n log n).
@@ -2387,3 +2428,359 @@ async def prep_plan(data: PlanRequest, current_user: models.User = Depends(get_c
     logger.info(f"Prep plan: {current_user.email} -> {company} in {hours:g}h, {len(blocks)} blocks")
     return {"hours": hours, "by_day": by_day, "headline": str(result.get("headline") or "").strip()[:300],
             "blocks": blocks, "before_call": [t for t in (_tip_text(t) for t in (result.get("before_call") or [])) if t][:5]}
+
+
+# ---------- Tailored resume: rewrite for one job, then a PDF ----------
+# The model only rephrases and reorders. Server-side checks keep it honest: a rewritten line that adds a number
+# or a job-description keyword that appears nowhere in the original resume is replaced by the original line.
+TAILOR_DAILY_LIMIT = 15
+TAILOR_MAX_SECTIONS = 8
+TAILOR_MAX_ENTRIES = 12
+TAILOR_MAX_BULLETS = 10
+TAILOR_LINE_CHARS = 600
+
+
+def _norm(text: str) -> str:
+    return re.sub(r"\s+", " ", str(text or "").lower()).strip()
+
+
+def _numbers(text: str) -> set:
+    return set(re.findall(r"\d+(?:[.,]\d+)?", str(text or "")))
+
+
+def _keyword_in(keyword: str, text_norm: str) -> bool:
+    k = _norm(keyword)
+    if not k:
+        return False
+    # whole-word match for short keywords ("Go", "C"), substring for longer ones ("PostgreSQL")
+    if len(k) <= 3:
+        return re.search(rf"(?<![a-z0-9+#]){re.escape(k)}(?![a-z0-9+#])", text_norm) is not None
+    if k in text_norm:
+        return True
+    # plural / singular: "Databases" is shown by "database", "API" by "APIs"
+    # (whole word, so "Redis" is NOT shown by "redirect")
+    return len(k) >= 4 and k.endswith("s") and re.search(rf"(?<![a-z0-9+#]){re.escape(k[:-1])}(?![a-z0-9+#])", text_norm) is not None
+
+
+def _added_facts(text: str, allowed_numbers: set, resume_norm: str, keywords: list):
+    """(numbers, keywords) in text that the resume doesn't back up."""
+    return (sorted(_numbers(text) - allowed_numbers),
+            [k for k in keywords if _keyword_in(k, _norm(text)) and not _keyword_in(k, resume_norm)])
+
+
+def check_rewrite(original: str, tailored: str, allowed_numbers: set, resume_norm: str, keywords: list):
+    """Return (text_to_use, note). Falls back to the original when the rewrite adds facts.
+    allowed_numbers: for a bullet, only the numbers of its OWN original line (so a metric can't move to
+    another bullet); for the summary, any number in the resume."""
+    original = str(original or "").strip()[:TAILOR_LINE_CHARS]
+    tailored = str(tailored or "").strip()[:TAILOR_LINE_CHARS]
+    if not tailored:
+        return original, ""
+    numbers, added = _added_facts(tailored, allowed_numbers, resume_norm, keywords)
+    if numbers:
+        return original, f"Kept your original: the rewrite added a number ({', '.join(numbers[:3])}) that isn't in this line of your resume."
+    if added:
+        return original, f"Kept your original: the rewrite mentioned {', '.join(added[:3])}, which your resume doesn't show."
+    return tailored, ""
+
+
+def check_summary(original: str, tailored: str, resume_numbers: set, resume_norm: str, keywords: list):
+    """Like check_rewrite, but drops only the sentences that add facts, so one bad sentence doesn't cost the
+    whole tailored summary."""
+    original = str(original or "").strip()[:TAILOR_LINE_CHARS]
+    tailored = str(tailored or "").strip()[:TAILOR_LINE_CHARS]
+    if not tailored:
+        return original, ""
+    kept, dropped = [], []
+    for sentence in re.split(r"(?<=[.!?])\s+", tailored):
+        numbers, added = _added_facts(sentence, resume_numbers, resume_norm, keywords)
+        (dropped if numbers or added else kept).append((sentence, numbers + added))
+    if not dropped:
+        return tailored, ""
+    if not kept:
+        return original, ""
+    reasons = sorted({r for _, rs in dropped for r in rs})
+    return " ".join(s for s, _ in kept), f"Removed a sentence that mentioned {', '.join(reasons[:3])}, which your resume doesn't show."
+
+
+@app.post("/api/resume/tailor")
+async def tailor_resume(
+    jd: str = Form(...),
+    company: str = Form(""),
+    role: str = Form(""),
+    resume_text: str = Form(""),
+    resume_file: UploadFile = File(None),
+    current_user: models.User = Depends(get_current_user_detached),
+):
+    jd = jd.strip()[:CONTEXT_MAX_JD_CHARS]
+    if len(jd) < 40:
+        raise HTTPException(status_code=400, detail="Paste the full job description (a few lines at least).")
+    if resume_file is not None and resume_file.filename:
+        try:
+            resume = (await asyncio.to_thread(_extract_pdf_text, await resume_file.read())).strip()
+        except Exception:
+            raise HTTPException(status_code=400, detail="Couldn't read that PDF. Please upload a text-based PDF resume.")
+    else:
+        resume = (resume_text or get_user_context(current_user.id).get("resume") or "").strip()
+    resume = resume[:CONTEXT_MAX_RESUME_CHARS]
+    if len(resume) < 100:
+        raise HTTPException(status_code=400, detail="Add your resume (PDF). If it's a scanned image, export it again as a text PDF.")
+    if not ai_client:
+        raise HTTPException(status_code=503, detail="AI is not available right now.")
+    if not use_daily_allowance("tailor", current_user.id, TAILOR_DAILY_LIMIT):
+        raise HTTPException(status_code=429, detail="You've tailored a lot of resumes today. Please try again tomorrow.")
+
+    prompt = f"""
+        You are an expert resume writer. Tailor this candidate's resume to ONE job, honestly.
+
+        COMPANY: {company.strip()[:80] or 'not given'}   ROLE: {role.strip()[:80] or 'see the job description'}
+        JOB DESCRIPTION:
+        {jd}
+
+        RESUME (plain text extracted from a PDF; rebuild its structure):
+        {resume}
+
+        STRICT RULES:
+        - NEVER invent anything: no new numbers, tools, skills, employers, titles, dates, degrees or achievements.
+          Only rephrase, tighten, reorder, and use the job description's wording for things the resume ALREADY shows.
+        - Use a job-description keyword in a line ONLY if the resume already shows that exact skill or fact. Do NOT
+          sprinkle in claims the resume doesn't make, such as "high-throughput", "low-latency", "microservices",
+          "at scale", "system design", "mentoring" or a tool name, unless the resume says so. Unsupported keywords go
+          in "gaps", not in the text. Lines that add them are rejected automatically.
+        - Fix obvious typos and grammar (e.g. a missing "years" after a number) without changing any fact.
+        - Keep EVERY section, entry and bullet from the resume (you may shorten weak bullets). Copy names, dates,
+          locations, contact details and links exactly.
+        - Bullets: start with a strong past-tense verb, keep every number from the original, max ~30 words.
+          Order bullets inside each entry from most to least relevant to this job.
+        - Summary: 2-3 lines aimed at this role, built only from resume facts. If the resume has no summary,
+          set "original" to "" and still write one.
+        - Skills: keep the same skills; put the ones this job asks for first. Never add a skill the resume doesn't show.
+
+        Return JSON ONLY:
+        {{"name": "...",
+          "contact": ["email", "phone", "linkedin/github/portfolio as written", "city"],
+          "summary": {{"original": "...", "tailored": "..."}},
+          "sections": [{{"title": "Experience|Projects|Education|...",
+                        "entries": [{{"heading": "job title / project / degree", "subheading": "company / tech / school",
+                                     "location": "", "dates": "",
+                                     "bullets": [{{"original": "exact original bullet", "tailored": "rewritten bullet",
+                                                  "why": "max 10 words: what changed"}}]}}]}}],
+          "skills": [{{"category": "Languages", "original": "as in resume", "tailored": "reordered"}}],
+          "keywords": ["the 15 most important skills/keywords in the job description, short"],
+          "gaps": [{{"skill": "a keyword the resume does NOT show", "advice": "max 25 words: add it only if true, and how"}}]}}
+        Put skills in "skills", not in "sections".
+        """
+    try:
+        data = _parse_model_json(await generate_text_reliably(prompt, json_mode=True))
+    except Exception as e:
+        logger.error(f"Tailor failed for {current_user.email}: {e}")
+        raise HTTPException(status_code=502, detail="Couldn't tailor the resume right now. Please try again.")
+
+    resume_norm = _norm(resume)
+    resume_numbers = _numbers(resume)
+    keywords = [str(k).strip()[:40] for k in (data.get("keywords") or []) if str(k).strip()][:20]
+    reverted = 0
+
+    def checked(original, tailored):
+        nonlocal reverted
+        allowed = _numbers(original) if str(original or "").strip() else resume_numbers
+        text, note = check_rewrite(original, tailored, allowed, resume_norm, keywords)
+        if note:
+            reverted += 1
+        return text, note
+
+    summary = data.get("summary") if isinstance(data.get("summary"), dict) else {}
+    s_original = str(summary.get("original") or "").strip()[:TAILOR_LINE_CHARS]
+    s_text, s_note = check_summary(s_original, summary.get("tailored"), resume_numbers, resume_norm, keywords)
+    if s_note:
+        reverted += 1
+    sections = []
+    for sec in (data.get("sections") or [])[:TAILOR_MAX_SECTIONS]:
+        if not isinstance(sec, dict) or not str(sec.get("title") or "").strip():
+            continue
+        entries = []
+        for ent in (sec.get("entries") or [])[:TAILOR_MAX_ENTRIES]:
+            if not isinstance(ent, dict):
+                continue
+            bullets = []
+            for b in (ent.get("bullets") or [])[:TAILOR_MAX_BULLETS]:
+                if isinstance(b, str):
+                    b = {"original": b, "tailored": b}
+                if not isinstance(b, dict) or not str(b.get("original") or b.get("tailored") or "").strip():
+                    continue
+                original = str(b.get("original") or "").strip()[:TAILOR_LINE_CHARS]
+                text, note = checked(original, b.get("tailored"))
+                if not original:      # a bullet that exists only in the rewrite: keep only if it passed the checks
+                    original = text if not note else ""
+                if not original and not text:
+                    continue
+                dropped = sorted(_numbers(original) - _numbers(text)) if text and text != original else []
+                bullets.append({"original": original, "tailored": text or original,
+                                "why": "" if note else str(b.get("why") or "").strip()[:80], "note": note,
+                                "warn": f"This version drops {', '.join(dropped[:4])} from your original. Tick Keep original if those numbers matter."
+                                        if dropped else ""})
+            entries.append({k: str(ent.get(k) or "").strip()[:120] for k in ("heading", "subheading", "location", "dates")}
+                           | {"bullets": bullets})
+        if entries:
+            sections.append({"title": str(sec["title"]).strip()[:40], "entries": entries})
+    skills = []
+    for sk in (data.get("skills") or [])[:10]:
+        if not isinstance(sk, dict):
+            continue
+        original = str(sk.get("original") or "").strip()[:TAILOR_LINE_CHARS]
+        tailored = str(sk.get("tailored") or "").strip()[:TAILOR_LINE_CHARS]
+        # reordering only: every item in the new list must already be in the resume
+        items = [i.strip() for i in re.split(r"[,;|]", tailored) if i.strip()]
+        kept = [i for i in items if _keyword_in(i, resume_norm)]
+        text = ", ".join(kept) if kept else original
+        if text or original:
+            skills.append({"category": str(sk.get("category") or "").strip()[:40], "original": original or text,
+                           "tailored": text or original})
+    contact = [str(c).strip()[:120] for c in (data.get("contact") or []) if str(c).strip() and _norm(c) in resume_norm][:6]
+    gaps = [{"skill": str(g.get("skill") or "").strip()[:60], "advice": str(g.get("advice") or "").strip()[:200]}
+            for g in (data.get("gaps") or []) if isinstance(g, dict) and str(g.get("skill") or "").strip()][:8]
+    if not sections:
+        raise HTTPException(status_code=502, detail="Couldn't read the structure of your resume. Please try again.")
+    logger.info(f"Tailored resume: {current_user.email} ({len(sections)} sections, {reverted} rewrites reverted)")
+    return {
+        "name": str(data.get("name") or "").strip()[:80], "contact": contact,
+        "summary": {"original": s_original, "tailored": s_text or s_original, "note": s_note},
+        "sections": sections, "skills": skills, "keywords": keywords, "gaps": gaps,
+        "keywords_before": [k for k in keywords if _keyword_in(k, resume_norm)],
+        "reverted": reverted, "company": company.strip()[:80], "role": role.strip()[:80],
+    }
+
+
+# ----- PDF: a classic one-column LaTeX-style resume, made with ReportLab (no LaTeX on the server) -----
+PDF_CHAR_MAP = {"₹": "Rs. ", "→": "->", "←": "<-", "≥": ">=", "≤": "<=", "✓": "", "✔": "", "★": "*", "​": ""}
+
+
+def _pdf_text(text) -> str:
+    """Text for ReportLab's standard fonts: escape markup and drop characters the fonts can't draw."""
+    t = str(text or "").replace("**", "")
+    for a, b in PDF_CHAR_MAP.items():
+        t = t.replace(a, b)
+    t = t.encode("cp1252", errors="ignore").decode("cp1252")
+    return t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+class PdfEntry(BaseModel):
+    heading: str = ""
+    subheading: str = ""
+    location: str = ""
+    dates: str = ""
+    bullets: list[str] = []
+
+
+class PdfSection(BaseModel):
+    title: str
+    entries: list[PdfEntry] = []
+
+
+class PdfSkill(BaseModel):
+    category: str = ""
+    items: str = ""
+
+
+class ResumePdfRequest(BaseModel):
+    name: str = ""
+    contact: list[str] = []
+    summary: str = ""
+    sections: list[PdfSection] = []
+    skills: list[PdfSkill] = []
+
+
+def build_resume_pdf(r: ResumePdfRequest) -> bytes:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.lib.units import inch
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
+    from reportlab.platypus.flowables import HRFlowable
+
+    name_style = ParagraphStyle("name", fontName="Times-Bold", fontSize=20, leading=24, alignment=TA_CENTER)
+    contact_style = ParagraphStyle("contact", fontName="Times-Roman", fontSize=9.5, leading=12, alignment=TA_CENTER)
+    head_style = ParagraphStyle("head", fontName="Times-Bold", fontSize=11.5, leading=14, spaceBefore=7)
+    body = ParagraphStyle("body", fontName="Times-Roman", fontSize=10, leading=12.4)
+    bullet = ParagraphStyle("bullet", parent=body, leftIndent=14, bulletIndent=4, spaceBefore=1)
+    right = ParagraphStyle("right", parent=body, alignment=2)
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=0.55 * inch, rightMargin=0.55 * inch,
+                            topMargin=0.45 * inch, bottomMargin=0.45 * inch,
+                            title=f"{r.name.strip()[:80] or 'Resume'} - Resume", author=r.name.strip()[:80])
+    width = A4[0] - 1.1 * inch - 12   # the page frame keeps 6pt padding on each side
+    story = []
+    if r.name.strip():
+        story.append(Paragraph(_pdf_text(r.name.strip()[:80]), name_style))
+    def contact_html(item):
+        # Links: shown short ("linkedin.com/in/x"), clickable in the PDF. Emails become mailto links.
+        shown = re.sub(r"^https?://(www\.)?", "", item).rstrip("/")
+        if re.match(r"^[^@\s]+@[^@\s]+\.[a-z]{2,}$", item, re.I):
+            return f'<link href="mailto:{_pdf_text(item)}">{_pdf_text(item)}</link>'
+        if re.match(r"^(https?://|www\.)|^[a-z0-9-]+\.(com|in|io|dev|me|org|net|ai)(/|$)", item, re.I):
+            href = item if item.lower().startswith("http") else "https://" + item
+            return f'<link href="{_pdf_text(href)}">{_pdf_text(shown)}</link>'
+        return _pdf_text(item)
+
+    contact = [c for c in (x.strip()[:120] for x in r.contact[:6]) if c]
+    if contact:
+        story.append(Paragraph(" &nbsp;|&nbsp; ".join(contact_html(c) for c in contact), contact_style))
+
+    def heading(title):
+        # returned, not added: the caller keeps it on the same page as the first lines under it
+        return [Paragraph(_pdf_text(title.upper()), head_style),
+                HRFlowable(width="100%", thickness=0.6, color=colors.black, spaceBefore=1, spaceAfter=4)]
+
+    if r.summary.strip():
+        story.append(KeepTogether(heading("Summary") + [Paragraph(_pdf_text(r.summary.strip()[:TAILOR_LINE_CHARS]), body)]))
+    for sec in r.sections[:TAILOR_MAX_SECTIONS]:
+        if not sec.title.strip() or not sec.entries:
+            continue
+        pending_heading = heading(sec.title.strip()[:40])
+        for ent in sec.entries[:TAILOR_MAX_ENTRIES]:
+            rows = []
+            if ent.heading or ent.dates:
+                rows.append([Paragraph(f"<b>{_pdf_text(ent.heading[:120])}</b>", body), Paragraph(_pdf_text(ent.dates[:60]), right)])
+            if ent.subheading or ent.location:
+                rows.append([Paragraph(f"<i>{_pdf_text(ent.subheading[:120])}</i>", body),
+                             Paragraph(f"<i>{_pdf_text(ent.location[:60])}</i>", right)])
+            block = []
+            if rows:
+                table = Table(rows, colWidths=[width * 0.72, width * 0.28])
+                table.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                                           ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+                                           ("VALIGN", (0, 0), (-1, -1), "TOP")]))
+                block.append(table)
+            block += [Paragraph(_pdf_text(b.strip()[:TAILOR_LINE_CHARS]), bullet, bulletText="•")
+                      for b in ent.bullets[:TAILOR_MAX_BULLETS] if b.strip()]
+            block.append(Spacer(1, 4))
+            # never leave a section heading or a job title alone at the bottom of a page
+            story.append(KeepTogether(pending_heading + block[:3]))
+            pending_heading = []
+            story.extend(block[3:])
+    skills = [s for s in r.skills[:10] if s.items.strip()]
+    if skills:
+        lines = []
+        for s in skills:
+            label = f"<b>{_pdf_text(s.category.strip()[:40])}:</b> " if s.category.strip() else ""
+            lines.append(Paragraph(label + _pdf_text(s.items.strip()[:TAILOR_LINE_CHARS]), body))
+        story.append(KeepTogether(heading("Skills") + lines[:2]))
+        story.extend(lines[2:])
+    doc.build(story)
+    return buf.getvalue()
+
+
+@app.post("/api/resume/pdf")
+async def resume_pdf(data: ResumePdfRequest, current_user: models.User = Depends(get_current_user_detached)):
+    if not data.sections and not data.summary.strip():
+        raise HTTPException(status_code=400, detail="Nothing to put in the PDF yet.")
+    try:
+        pdf = await asyncio.to_thread(build_resume_pdf, data)
+    except Exception as e:
+        logger.error(f"Resume PDF failed for {current_user.email}: {e}")
+        raise HTTPException(status_code=500, detail="Couldn't make the PDF. Please try again.")
+    safe = re.sub(r"[^A-Za-z0-9]+", "_", data.name.strip())[:40].strip("_") or "Resume"
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="{safe}_Resume.pdf"'})

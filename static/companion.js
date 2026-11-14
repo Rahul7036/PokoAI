@@ -133,6 +133,10 @@
                 <div class="pc-say" data-say></div>
                 <ul class="pc-points" data-points></ul>
                 <div class="pc-explain script-text" data-explain hidden></div>
+                <details class="pc-detail pc-design" data-design-wrap hidden open>
+                    <summary><span class="pc-lbl-long" data-design-lbl>System design</span><span class="pc-lbl-short">Design</span></summary>
+                    <div class="pc-detail-body script-text" data-design></div>
+                </details>
                 <details class="pc-detail" data-detail-wrap hidden>
                     <summary><span class="pc-lbl-long" data-detail-lbl>Code example</span><span class="pc-lbl-short" data-detail-lbl-short>Code</span></summary>
                     <div class="pc-detail-body script-text" data-detail></div>
@@ -194,6 +198,7 @@
             index: -1,                 // which answer is shown; -1 = follow the latest
             detailOpen: new Map(),     // answer id -> details expanded?
             projectOpen: new Map(),    // answer id -> "link it to your project" expanded?
+            designOpen: new Map(),     // answer id -> system design section expanded? (open by default)
             qExpanded: false,          // full question shown instead of the short preview
             transcript: '',            // live speech line (what is being heard right now)
             scrollTop: 0,              // answer scroll position, kept across minimize/restore
@@ -223,6 +228,7 @@
                 q: q('[data-q]'), skipped: q('[data-skipped]'), say: q('[data-say]'), points: q('[data-points]'),
                 detailWrap: q('[data-detail-wrap]'), detail: q('[data-detail]'), plain: q('[data-plain]'),
                 projectWrap: q('[data-project-wrap]'), project: q('[data-project]'), explain: q('[data-explain]'),
+                designWrap: q('[data-design-wrap]'), design: q('[data-design]'), designLbl: q('[data-design-lbl]'),
                 detailLbl: q('[data-detail-lbl]'), detailLblShort: q('[data-detail-lbl-short]'),
                 resize: q('[data-resize]'), live: q('[data-live]'), liveText: q('[data-live-text]'),
                 prev: q('[data-act="prev"]'), next: q('[data-act="next"]'), alphaBtn: q('[data-act="alpha"]'),
@@ -253,6 +259,10 @@
             el.projectWrap.addEventListener('toggle', () => {
                 const a = currentAnswer();
                 if (a) state.projectOpen.set(a.id, el.projectWrap.open);
+            });
+            el.designWrap.addEventListener('toggle', () => {
+                const a = currentAnswer();
+                if (a && !el.designWrap.hidden) state.designOpen.set(a.id, el.designWrap.open);
             });
             el.head.addEventListener('dblclick', (e) => {
                 if (!e.target.closest('button')) setView(state.view === 'compact' ? 'expanded' : 'compact');
@@ -528,6 +538,7 @@
             if (p.say) parts.push(plain(p.say));
             if (p.points.length) parts.push(p.points.map(pt => `• ${plain(pt)}`).join('\n'));
             if (p.explain) parts.push(plain(p.explain));
+            if (p.design) parts.push(p.design);
             if (p.code || p.detail) parts.push(p.code || p.detail);
             if (p.project) parts.push(`Link to my project: ${plain(p.project)}`);
             return parts.join('\n\n');
@@ -567,6 +578,7 @@
                 el.detailWrap.hidden = true;
                 el.projectWrap.hidden = true;
                 el.explain.hidden = true;
+                el.designWrap.hidden = true;
                 return;
             }
             // The plain-words explanation is always visible
@@ -577,6 +589,15 @@
                 ? `${o.inline(p.sayLead)}<span class="pc-say-rest">${o.inline(p.sayRest)}</span>`
                 : o.inline(p.say);
             el.points.innerHTML = p.points.map(pt => `<li>${o.inline(pt)}</li>`).join('');
+            // System design / architecture: open by default; diagrams are drawn by the page (o.enhance)
+            el.designWrap.hidden = !p.design;
+            if (p.design) {
+                el.designLbl.textContent = o.designLabel ? o.designLabel(p.design) : 'System design';
+                el.design.innerHTML = o.markdown(p.design);
+                if (o.enhance) o.enhance(el.design, p.design);
+                const wantDesign = state.designOpen.has(a.id) ? state.designOpen.get(a.id) : true;
+                if (el.designWrap.open !== wantDesign) el.designWrap.open = wantDesign;
+            }
             el.projectWrap.hidden = !p.project;
             if (p.project) {
                 el.project.innerHTML = o.markdown(p.project);
@@ -591,7 +612,8 @@
                 el.detailLblShort.textContent = p.code ? 'Code' : 'More';
                 el.detail.innerHTML = o.markdown(p.code ||
                     String(p.detail).replace(/^(\s*)\**Example\**:\**/gm, '$1**Example:**'));
-                // Older answers with code open automatically; the code example opens when tapped
+                // Coding (DSA) answers open the code by itself; older answers with code too
+                if (!state.detailOpen.has(a.id) && p.code && /\b(time|space)\b[^\n]*O\(/i.test(p.code)) state.detailOpen.set(a.id, true);
                 if (!state.detailOpen.has(a.id) && !p.code && p.detail.includes('```')) state.detailOpen.set(a.id, true);
                 const want = !!state.detailOpen.get(a.id);
                 if (el.detailWrap.open !== want) el.detailWrap.open = want;
@@ -677,6 +699,7 @@
             if (el.q) el.q.classList.remove('pc-q-full');
             state.detailOpen.clear();
             state.projectOpen.clear();
+            state.designOpen.clear();
             setTranscript('');
             render();
         }
