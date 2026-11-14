@@ -187,6 +187,13 @@
 .pc-detail[open] summary::after { content: " \25B4"; }
 .pc-detail summary:focus-visible { outline: 2px solid var(--pc-accent); outline-offset: 2px; border-radius: 4px; }
 .pc-project summary { color: var(--pc-green); }
+.pc-design summary { color: #c4b5fd; }
+.pc-design h3 { font-size: 1em; margin: 10px 0 4px; color: #e9d5ff; }
+.pc-design h3:first-child { margin-top: 2px; }
+/* Diagrams drawn by the page (same classes as the main screen; repeated here for the pop-out window) */
+.cp-diagram { overflow-x: auto; margin: 6px 0; padding: 8px; border-radius: 8px; background: rgba(0, 0, 0, 0.35); text-align: center; }
+.cp-diagram svg { max-width: none; height: auto; }
+.cp-diagram-wait, .cp-diagram-note { color: var(--pc-muted, #94a3b8); font-size: 0.85em; padding: 6px 0; }
 .pc-say-rest {
     display: block;
     margin-top: 4px;

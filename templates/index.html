@@ -21,8 +21,8 @@
         rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js"></script>
-    <link rel="stylesheet" href="/static/companion.css?v=7">
-    <script src="/static/companion.js?v=7"></script>
+    <link rel="stylesheet" href="/static/companion.css?v=8">
+    <script src="/static/companion.js?v=8"></script>
     <style>
         :root {
             --bg-dark: #020617;
@@ -2275,6 +2275,17 @@
         .cp-explain p { margin: 0 0 0.4rem; }
         .cp-explain p:last-child { margin-bottom: 0; }
         .cp-project { border-color: rgba(34, 197, 94, 0.35); }
+        .cp-design { border-color: rgba(167, 139, 250, 0.45); }
+        .cp-design summary { color: #c4b5fd; }
+        .cp-design .script-text { font-size: calc(0.95rem * var(--cp-scale)); line-height: 1.55; padding-bottom: 0.6rem; }
+        .cp-design h3 { font-size: calc(1rem * var(--cp-scale)); margin: 1rem 0 0.4rem; color: #e9d5ff; }
+        .cp-design h3:first-child { margin-top: 0.2rem; }
+        .cp-design ul { margin: 0.2rem 0 0.5rem; padding-left: 1.2rem; }
+        .cp-diagram { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0.6rem 0; padding: 0.7rem; border-radius: 10px;
+            background: #070d1c; border: 1px solid var(--cp-border, rgba(148, 163, 184, 0.18)); text-align: center; }
+        .cp-diagram svg { max-width: none; height: auto; }
+        .cp-diagram-wait { color: var(--cp-muted, #94a3b8); font-size: 0.85rem; padding: 1.2rem 0; }
+        .cp-diagram-note { color: var(--cp-muted, #94a3b8); font-size: 0.8rem; margin-top: 0.4rem; }
         .cp-project summary { color: var(--cp-green); }
 
         .cp-detail .script-text,
@@ -3057,7 +3068,7 @@
         #landing-view button.lv-btn { font-family: var(--font-body); }
 
         /* ===== Mock interview (reuses the copilot's .cp-* building blocks) ===== */
-        #mock-view, #research-view {
+        #mock-view, #research-view, #tailor-view {
             --cp-scale: 1;
             --cp-bg: #020617;
             --cp-surface: #0b1224;
@@ -3073,6 +3084,38 @@
             background: #020617;
         }
         .rs-results { max-width: 720px; padding-bottom: 2rem; }
+        .tl-review { max-width: 760px; padding-bottom: 2rem; }
+        .tl-score { border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 14px; padding: 0.9rem 1rem; margin: 0.5rem 0 0.8rem;
+            background: linear-gradient(180deg, rgba(56, 189, 248, 0.07), transparent 70%); }
+        .tl-score-label { font-size: 0.8rem; color: var(--cp-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; }
+        .tl-score-nums { font-size: 1.5rem; font-weight: 800; margin: 0.2rem 0 0.6rem; }
+        .tl-score-nums b { color: var(--cp-green); }
+        .tl-arrow { color: var(--cp-muted); }
+        .tl-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+        .tl-chips span { font-size: 0.75rem; padding: 0.15rem 0.55rem; border-radius: 999px; border: 1px solid var(--cp-border); color: var(--cp-muted); }
+        .tl-chips span.on { border-color: rgba(34, 197, 94, 0.5); color: #bbf7d0; background: rgba(34, 197, 94, 0.08); }
+        .tl-gaps { border: 1px solid rgba(245, 158, 11, 0.4); background: rgba(245, 158, 11, 0.06); border-radius: 12px; padding: 0.8rem 0.9rem; margin-bottom: 0.8rem; }
+        .tl-gaps ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.3rem; font-size: 0.9rem; line-height: 1.45; }
+        .tl-sec { margin-top: 1.4rem; }
+        .tl-sec-title { font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.85rem; color: var(--cp-blue);
+            border-bottom: 1px solid var(--cp-border); padding-bottom: 0.3rem; margin-bottom: 0.6rem; }
+        .tl-entry-head { display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin: 0.8rem 0 0.4rem; }
+        .tl-entry-head b { font-size: 0.98rem; }
+        .tl-entry-head span { color: var(--cp-muted); font-size: 0.85rem; }
+        .tl-item { border: 1px solid var(--cp-border); border-radius: 10px; padding: 0.55rem 0.7rem; margin-bottom: 0.45rem; background: var(--cp-surface); }
+        .tl-item.changed { border-left: 3px solid var(--cp-green); }
+        .tl-new { line-height: 1.5; outline: none; border-radius: 6px; padding: 0.1rem 0.2rem; margin: -0.1rem -0.2rem; }
+        .tl-new:focus { background: rgba(56, 189, 248, 0.08); box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.5); }
+        .tl-old { color: var(--cp-muted); font-size: 0.85rem; margin-top: 0.35rem; line-height: 1.45; }
+        .tl-old span { font-weight: 700; }
+        .tl-row { display: flex; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.35rem; font-size: 0.8rem; color: var(--cp-muted); }
+        .tl-row label { display: inline-flex; gap: 0.35rem; align-items: center; cursor: pointer; white-space: nowrap; }
+        .tl-item.use-old .tl-new { opacity: 0.45; text-decoration: line-through; }
+        .tl-item.use-old .tl-old { color: var(--cp-text); }
+        .tl-note { margin-top: 0.35rem; font-size: 0.8rem; color: #fcd34d; }
+        .tl-actions { position: sticky; bottom: 0; padding: 0.9rem 0 0.4rem; margin-top: 1.2rem; background: linear-gradient(180deg, transparent, var(--cp-bg) 30%); display: grid; gap: 0.5rem; }
+        .tl-actions-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+        .tl-actions-row .cp-btn { height: 44px; font-size: 0.88rem; }
         .rs-h { font-size: 1.02rem; margin: 1.6rem 0 0.7rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
         .rs-tag { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase; color: var(--cp-muted);
             border: 1px solid var(--cp-border); border-radius: 6px; padding: 0.1rem 0.45rem; }
@@ -3693,6 +3736,7 @@
         <details><summary>How fast are the answers?</summary><p>The first words usually appear about two seconds after the interviewer stops talking: PrapAI waits about a second to be sure they've finished, then starts writing. The rest fills in while you say the opening line.</p></details>
         <details><summary>What is the mock interview?</summary><p>An AI interviewer asks you questions out loud, including questions candidates report being asked at the company you name (found with a web search) and questions about your resume. You answer out loud, it may ask a follow-up, and at the end you get a score and a better answer for each question. It uses the same minutes as the copilot, only while the interview runs.</p></details>
         <details><summary>Can it tell me what a company usually asks, and make a prep plan?</summary><p>Yes. After signing in, open "Interview prep", enter the company, role, when your interview is and (optionally) the job description. PrapAI searches interview experiences candidates shared online and shows the rounds, the questions they reported, their tips and the sources, plus questions your job description and resume make likely, clearly marked as predictions. Then it builds a prep plan that fits your time: hour by hour if the interview is today, day by day if it's later, with sleep and a mock interview included. Tap any question for a suggested answer, tick tasks as you go, or practise questions in a mock interview. It's free.</p></details>
+        <details><summary>Can it tailor my resume for a job?</summary><p>Yes. After signing in, open "Tailored resume", add your resume and paste the job description. PrapAI rewrites your summary and bullets in the job's language, puts the most relevant first and reorders your skills. It never adds experience, numbers or skills you don't have: any rewrite that does is automatically switched back to your original line, and missing skills are listed separately so you can add them only if they're true. You review every change, then download a clean PDF (or a .tex file for Overleaf). It's free.</p></details>
         <details><summary>What do I get after a real interview?</summary><p>Tap Stop, then "Interview report": every question you were asked, the suggested answers, and three topics to revise. You can copy or download it, or turn the hardest questions into a mock interview. The report is free.</p></details>
         <details><summary>Will the answers sound like me?</summary><p>They use only facts from your resume and are short cues, not a script. You say them in your own words.</p></details>
         <details><summary>What happens to my resume?</summary><p>It's read to prepare answers and kept in memory on our server while you use PrapAI. It isn't saved to our database. So you don't have to upload it again after a refresh or for your next interview, the resume text, company and job description are also kept in your own browser on this device. Signing out clears them.</p></details>
@@ -3771,6 +3815,12 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>
                     <span class="db-tool-text"><span class="db-tool-title">Resume match</span>
                         <span class="db-tool-desc">Score your resume against a job and see what to fix.</span></span>
+                    <span class="db-arrow" aria-hidden="true">&rarr;</span>
+                </button>
+                <button class="db-tool" type="button" onclick="openTailor()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></svg>
+                    <span class="db-tool-text"><span class="db-tool-title">Tailored resume <span class="lp-badge">NEW</span></span>
+                        <span class="db-tool-desc">Rewrites your resume for one job and gives you a PDF. Never invents experience.</span></span>
                     <span class="db-arrow" aria-hidden="true">&rarr;</span>
                 </button>
                 <button class="db-tool" type="button"
@@ -3921,6 +3971,10 @@
                     </div>
                     <ul id="cpPoints" class="cp-points"></ul>
                     <div id="cpExplain" class="cp-explain script-text hidden"></div>
+                    <details id="cpDesignWrap" class="cp-detail cp-design hidden" open>
+                        <summary id="cpDesignLabel">System design</summary>
+                        <div id="cpDesign" class="script-text"></div>
+                    </details>
                     <details id="cpDetailWrap" class="cp-detail hidden">
                         <summary id="cpDetailLabel">Code example</summary>
                         <div id="cpDetail" class="script-text"></div>
@@ -3952,6 +4006,66 @@
             </footer>
 
             <div id="cpToast" class="cp-toast hidden" role="status"></div>
+        </div>
+    </div>
+    <!-- VIEW: TAILORED RESUME -->
+    <div id="tailor-view" class="view">
+        <div class="cp">
+            <header class="cp-bar">
+                <button class="cp-icon-btn" onclick="showView('dashboard-view')" title="Back to dashboard"
+                    aria-label="Back to dashboard">&larr;</button>
+                <div id="tlState" class="cp-state idle" role="status" aria-live="polite">
+                    <span class="cp-dot"></span><span id="tlStateText">Tailored resume</span>
+                </div>
+                <div class="cp-bar-right"></div>
+            </header>
+            <main class="cp-main" id="tlMain">
+                <section id="tlSetup" class="cp-idle">
+                    <div class="mk-title">Tailored resume</div>
+                    <p class="mk-sub">PrapAI rewrites your resume for one job: a summary aimed at the role, bullets in the
+                        job's language and most relevant first, skills reordered. You review every change, then download a
+                        clean PDF. It never adds experience, numbers or skills you don't already have.</p>
+                    <div class="mk-form">
+                        <p id="tlSavedResume" class="mk-note hidden" style="margin: 0;"></p>
+                        <label>Resume (PDF) <input type="file" id="tlResume" accept=".pdf"></label>
+                        <label>Company <span class="mk-opt">(optional)</span> <input type="text" id="tlCompany" maxlength="80" placeholder="e.g. Swiggy"></label>
+                        <label>Role <span class="mk-opt">(optional)</span> <input type="text" id="tlRole" maxlength="80" placeholder="e.g. Backend Engineer"></label>
+                        <label>Job description <textarea id="tlJd" placeholder="Paste the full job description here"></textarea></label>
+                    </div>
+                    <button id="tlGoBtn" class="cp-start" onclick="runTailor()">Tailor my resume</button>
+                    <p class="mk-note">Free. Takes about 30 seconds.</p>
+                </section>
+
+                <section id="tlBusy" class="mk-center hidden">
+                    <div class="cp-rings"><span></span><span></span><span></span></div>
+                    <div id="tlBusyText" class="cp-waiting-text">Reading the job description…</div>
+                </section>
+
+                <section id="tlReview" class="cp-idle tl-review hidden">
+                    <div class="mk-title" id="tlTitle">Your tailored resume</div>
+                    <div class="tl-score">
+                        <div><div class="tl-score-label">Job keywords in your resume</div>
+                            <div class="tl-score-nums"><span id="tlBefore"></span> <span class="tl-arrow">&rarr;</span> <b id="tlAfter"></b></div></div>
+                        <div id="tlKeywords" class="tl-chips"></div>
+                    </div>
+                    <p id="tlReverted" class="mk-note hidden"></p>
+                    <div id="tlGapsWrap" class="tl-gaps hidden">
+                        <b>Not added: your resume doesn't show these</b>
+                        <p class="mk-note" style="margin:0.2rem 0 0.5rem">Add them yourself only if they're true.</p>
+                        <ul id="tlGaps"></ul>
+                    </div>
+                    <p class="mk-note">Tap any line to edit it. Tick "Keep original" to undo a change.</p>
+                    <div id="tlBody"></div>
+                    <div class="tl-actions">
+                        <button id="tlPdfBtn" class="cp-start" onclick="downloadTailoredPdf()">⬇ Download PDF</button>
+                        <div class="tl-actions-row">
+                            <button class="cp-btn" onclick="downloadTailoredTex()">Download .tex (Overleaf)</button>
+                            <button class="cp-btn" onclick="newTailor()">Tailor for another job</button>
+                        </div>
+                    </div>
+                </section>
+            </main>
+            <div id="tlToast" class="cp-toast hidden" role="status"></div>
         </div>
     </div>
     <!-- VIEW: COMPANY RESEARCH -->
@@ -4229,7 +4343,10 @@
                             style="color: var(--text-secondary); line-height: 1.6; padding-left: 1.2rem;"></ul>
                     </div>
                 </div>
-                <button class="btn-outline" style="margin-top: 2rem;" onclick="resetReview()">New Scan</button>
+                <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:2rem">
+                    <button class="btn-primary" onclick="tailorFromReview()">✨ Fix it for me: tailored resume PDF</button>
+                    <button class="btn-outline" onclick="resetReview()">New Scan</button>
+                </div>
             </div>
         </div>
     </div>
@@ -4363,7 +4480,7 @@
             }
 
             document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
-            document.body.classList.toggle('copilot-mode', viewId === 'app-view' || viewId === 'mock-view' || viewId === 'research-view');
+            document.body.classList.toggle('copilot-mode', ['app-view', 'mock-view', 'research-view', 'tailor-view'].includes(viewId));
             rememberView(viewId);   // so a refresh brings the user back here
             const target = document.getElementById(viewId);
             if (target) {
@@ -4402,7 +4519,7 @@
         //   sessionStorage prapView     : which screen the user was on (this tab)
         //   sessionStorage prapAnswers  : the copilot answers shown so far (this tab)
         const SETUP_KEY = 'prapSetup.v1', VIEW_KEY = 'prapView', ANSWERS_KEY = 'prapAnswers', LISTENING_KEY = 'prapListening';
-        const RESTORABLE_VIEWS = ['dashboard-view', 'app-view', 'mock-view', 'resume-review-view', 'research-view'];
+        const RESTORABLE_VIEWS = ['dashboard-view', 'app-view', 'mock-view', 'resume-review-view', 'research-view', 'tailor-view'];
 
         // The signed-in account (the token's "sub"), so one person's resume is never shown to another
         function tokenOwner() {
@@ -4428,7 +4545,7 @@
         }
 
         function clearSavedSession() {
-            try { localStorage.removeItem(SETUP_KEY); localStorage.removeItem('prapPrep.v1'); } catch (e) { }
+            try { localStorage.removeItem(SETUP_KEY); localStorage.removeItem('prapPrep.v1'); localStorage.removeItem('prapTailor.v1'); } catch (e) { }
             try { [VIEW_KEY, ANSWERS_KEY, LISTENING_KEY, 'prapResearch'].forEach(k => sessionStorage.removeItem(k)); } catch (e) { }
         }
 
@@ -4540,6 +4657,7 @@
             else if (lastView === 'mock-view') openMock();
             else if (lastView === 'resume-review-view') showResumeReview();
             else if (lastView === 'research-view') openResearch();
+            else if (lastView === 'tailor-view') openTailor();
             else showView('dashboard-view');
             offerPlansAfterLogin();
         }
@@ -4926,6 +5044,8 @@
             canAnswerNow: () => copilotRunning,
             onAnswerNow: () => answerNow(),
             onToast: (msg) => showToast(msg),
+            designLabel,
+            enhance: (root, design) => enhanceDiagrams(root, completeDiagrams(design), () => companion.scheduleUpdate()),
             canOpen: () => !!localStorage.getItem('token'),   // Alt+C does nothing on the signed-out pages
         });
 
@@ -5067,14 +5187,15 @@
             ['code', /^\**\s*code(?:\s+example)?\s*\**\s*:\s*\**/i],
             ['detail', /^\**\s*details?\s*\**\s*:\s*\**/i],
             ['project', /^\**\s*project\s*\**\s*:\s*\**/i],
+            ['design', /^\**\s*(?:system\s+)?design\s*\**\s*:\s*\**/i],
         ];
-        const BLOCK_SECTIONS = ['explain', 'code', 'detail', 'project'];
+        const BLOCK_SECTIONS = ['explain', 'code', 'detail', 'project', 'design'];
         // "NONE" (or the start of it while streaming) means the section doesn't apply to this answer
         const isNoneText = (t) => /^n(o(n(e)?)?)?[.!]?$/i.test(t.replace(/\*/g, '').trim());
 
         function parseAnswer(text) {
             const lines = String(text || '').replace(/\r/g, '').split('\n');
-            const s = { say: '', points: [], explain: [], code: [], detail: [], project: [] };
+            const s = { say: '', points: [], explain: [], code: [], detail: [], project: [], design: [] };
             let mode = 'start', structured = false, inCode = false;
             for (const raw of lines) {
                 const line = raw.trim();
@@ -5103,7 +5224,108 @@
             const say = s.say.trim();
             const [sayLead, sayRest] = splitSay(say);
             return { structured, say, sayLead, sayRest, points: s.points, explain: block('explain'),
-                code: block('code'), detail: block('detail'), project: block('project') };
+                code: ensureFenced(block('code')), detail: block('detail'), project: block('project'),
+                design: block('design') };
+        }
+
+        // Code must look like code: if the model forgot the ``` fence, wrap it (a "Time: O(..)" line stays outside)
+        function ensureFenced(code) {
+            if (!code || code.includes('```')) return code;
+            const lines = code.split('\n');
+            const notes = lines.filter(l => /^\s*\**\s*(time|space)\b[^\n]*O\(/i.test(l));
+            const body = lines.filter(l => !notes.includes(l)).join('\n').trim();
+            return [...notes, body ? '```\n' + body + '\n```' : ''].filter(Boolean).join('\n');
+        }
+
+        // ----- Diagrams: ```mermaid blocks drawn as pictures (Mermaid loads only when a diagram appears) -----
+        const MERMAID_URL = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js';
+        const DIAGRAMS = new Map();   // diagram source -> { svg } | { error: true } | { pending: true }
+        let mermaidLoading = null, diagramSeq = 0;
+
+        function loadMermaid() {
+            if (window.mermaid) return Promise.resolve(window.mermaid);
+            if (!mermaidLoading) {
+                mermaidLoading = new Promise((resolve, reject) => {
+                    const tag = document.createElement('script');
+                    tag.src = MERMAID_URL;
+                    tag.onload = () => {
+                        window.mermaid.initialize({
+                            startOnLoad: false, securityLevel: 'strict', theme: 'base', htmlLabels: false,
+                            fontFamily: 'Inter, system-ui, sans-serif',
+                            // "base" is the only Mermaid theme that uses these colours (PrapAI's dark blue look)
+                            themeVariables: { darkMode: true, background: '#070d1c', fontSize: '14px',
+                                primaryColor: '#0f1d3a', primaryTextColor: '#f1f5f9', primaryBorderColor: '#38bdf8',
+                                secondaryColor: '#1e293b', tertiaryColor: '#0b1224', lineColor: '#7dd3fc',
+                                textColor: '#e2e8f0', mainBkg: '#0f1d3a', nodeBorder: '#38bdf8',
+                                edgeLabelBackground: '#0b1224', clusterBkg: '#0b1224', clusterBorder: '#334155' },
+                            // natural size: on a phone the diagram scrolls sideways instead of shrinking to tiny text
+                            flowchart: { htmlLabels: false, useMaxWidth: false, curve: 'basis' },
+                            class: { useMaxWidth: false },
+                        });
+                        resolve(window.mermaid);
+                    };
+                    tag.onerror = () => { mermaidLoading = null; tag.remove(); reject(new Error('Mermaid failed to load')); };
+                    document.head.appendChild(tag);
+                });
+            }
+            return mermaidLoading;
+        }
+
+        // Common model slip: brackets inside an unquoted label, e.g. A[Cache (Redis)]. Quote every plain label.
+        function repairMermaid(src) {
+            // (labels starting with ( / \ are shapes, e.g. a database [(..)], and are left alone)
+            return src.replace(/\b([A-Za-z][\w]*)\[(?![(/\\])([^\[\]"\n]+)\]/g, (m, id, label) => `${id}["${label.replace(/"/g, "'")}"]`);
+        }
+
+        async function renderDiagram(src) {
+            const m = await loadMermaid();
+            const clean = src.split('\n').filter(line => !/^\s*%%/.test(line)).join('\n');   // no %% directives
+            let code = clean;
+            if (!(await m.parse(code, { suppressErrors: true }))) {
+                code = repairMermaid(clean);
+                if (!(await m.parse(code, { suppressErrors: true }))) throw new Error('diagram syntax');
+            }
+            const { svg } = await m.render(`cpDiagram${++diagramSeq}`, code);
+            return svg;
+        }
+
+        // Sources of the ```mermaid blocks that are complete (closed), so a half-streamed one isn't drawn yet
+        function completeDiagrams(markdown) {
+            const fence = '`'.repeat(3);
+            const re = new RegExp(fence + 'mermaid[^\\n]*\\n([\\s\\S]*?)' + fence, 'g');
+            return new Set([...String(markdown || '').matchAll(re)].map(x => x[1].trim()));
+        }
+
+        // Replace each rendered ```mermaid code block inside root with its drawing. onReady: re-render later.
+        function enhanceDiagrams(root, complete, onReady) {
+            root.querySelectorAll('pre > code.language-mermaid').forEach(code => {
+                const src = code.textContent.trim();
+                const pre = code.parentElement;
+                const hit = DIAGRAMS.get(src);
+                if (hit && hit.error) {
+                    pre.classList.add('cp-diagram-src');
+                    pre.insertAdjacentHTML('beforebegin', '<div class="cp-diagram-note">Diagram (as text):</div>');
+                    return;
+                }
+                const box = pre.ownerDocument.createElement('div');
+                box.className = 'cp-diagram';
+                if (hit && hit.svg) { box.innerHTML = hit.svg; pre.replaceWith(box); return; }
+                box.innerHTML = '<div class="cp-diagram-wait">Drawing the diagram…</div>';
+                pre.replaceWith(box);
+                if (!hit && complete.has(src)) {
+                    DIAGRAMS.set(src, { pending: true });
+                    renderDiagram(src)
+                        .then(svg => DIAGRAMS.set(src, { svg }))
+                        .catch(() => DIAGRAMS.set(src, { error: true }))
+                        .finally(() => { if (onReady) onReady(); });
+                }
+            });
+        }
+
+        function designLabel(design) {
+            if (/classDiagram/.test(design)) return 'Class design';
+            if (/###\s*(Clarify|Requirements|APIs?)\b/i.test(design)) return 'System design';
+            return 'Architecture';
         }
 
         // SAY = a direct first sentence + a plain-words explanation. Shown as one block: the first sentence
@@ -5143,6 +5365,7 @@
             if (usePlain) {
                 $('cpPlain').innerHTML = safeMarkdown(a.text);
                 $('cpExplain').classList.add('hidden');
+                $('cpDesignWrap').classList.add('hidden');
                 $('cpDetailWrap').classList.add('hidden');
                 $('cpProjectWrap').classList.add('hidden');
             } else {
@@ -5152,6 +5375,18 @@
                 // Older answers had a separate explanation block
                 $('cpExplain').classList.toggle('hidden', !p.explain);
                 if (p.explain) $('cpExplain').innerHTML = safeMarkdown(p.explain);
+                // System design / architecture / class design: open by default, diagrams drawn
+                const designWrap = $('cpDesignWrap');
+                designWrap.classList.toggle('hidden', !p.design);
+                if (p.design) {
+                    $('cpDesignLabel').textContent = designLabel(p.design);
+                    $('cpDesign').innerHTML = safeMarkdown(p.design);
+                    enhanceDiagrams($('cpDesign'), completeDiagrams(p.design), () => {
+                        if (answers[viewIndex] === a) scheduleRender();
+                        companion.scheduleUpdate();
+                    });
+                    designWrap.open = a.designOpen !== false;
+                }
                 // Collapsible: "Code example" (new format) or "More detail" (older answers)
                 const wrap = $('cpDetailWrap');
                 const extra = p.code || p.detail;
@@ -5159,7 +5394,8 @@
                 if (extra) {
                     $('cpDetailLabel').textContent = p.code ? 'Code example' : 'More detail';
                     $('cpDetail').innerHTML = safeMarkdown(p.code || detailMarkdown(p.detail));
-                    // Older answers with code open automatically; the code example opens when tapped
+                    // Coding (DSA) answers open the code by itself: it IS the answer. Older answers with code too.
+                    if (a.detailOpen === undefined && p.code && /\b(time|space)\b[^\n]*O\(/i.test(p.code)) a.detailOpen = true;
                     if (a.detailOpen === undefined && !p.code && p.detail.includes('```')) a.detailOpen = true;
                     wrap.open = !!a.detailOpen;
                 }
@@ -5180,6 +5416,10 @@
         $('cpDetailWrap').addEventListener('toggle', () => {
             const a = answers[viewIndex];
             if (a) a.detailOpen = $('cpDetailWrap').open;
+        });
+        $('cpDesignWrap').addEventListener('toggle', () => {
+            const a = answers[viewIndex];
+            if (a && !$('cpDesignWrap').classList.contains('hidden')) a.designOpen = $('cpDesignWrap').open;
         });
         $('cpProjectWrap').addEventListener('toggle', () => {
             const a = answers[viewIndex];
@@ -6283,10 +6523,18 @@
             const rest = p.sayRest ? ` <span style="color:var(--cp-muted)">${safeInline(p.sayRest)}</span>` : '';
             let html = `<div><b>${safeInline(p.sayLead)}</b>${rest}</div>`;
             if (p.points.length) html += `<ul>${p.points.map(x => `<li>${safeInline(x)}</li>`).join('')}</ul>`;
+            if (p.design) html += `<details open style="margin-top:0.45rem"><summary class="rs-ans-btn">${escapeHtml(designLabel(p.design))}</summary><div class="cp-design-inline">${safeMarkdown(p.design)}</div></details>`;
             const code = p.code || p.detail;
             if (code) html += `<details style="margin-top:0.45rem"><summary class="rs-ans-btn">Code example</summary>${safeMarkdown(code)}</details>`;
             if (p.project) html += `<div class="rs-proj">🔗 ${safeInline(p.project)}</div>`;
             return html;
+        }
+
+        function rsFillAnswer(box, text) {
+            box.innerHTML = rsAnswerHtml(text);
+            enhanceDiagrams(box, completeDiagrams(parseAnswer(text).design), () => {
+                if (!box.classList.contains('hidden')) rsFillAnswer(box, text);
+            });
         }
 
         async function rsToggleAnswer(kind, i) {
@@ -6295,7 +6543,7 @@
             if (!box.classList.contains('hidden')) { box.classList.add('hidden'); btn.textContent = 'Show answer'; return; }
             box.classList.remove('hidden');
             btn.textContent = 'Hide answer';
-            if (rs.answers[key]) { box.innerHTML = rsAnswerHtml(rs.answers[key]); return; }
+            if (rs.answers[key]) { rsFillAnswer(box, rs.answers[key]); return; }
             box.innerHTML = '<span style="color:var(--cp-muted)">Writing an answer from your resume…</span>';
             const data = rs.data;
             try {
@@ -6309,7 +6557,7 @@
                 if (!res.ok) throw new Error(out.detail || "Couldn't write the answer.");
                 if (rs.data !== data) return;   // a new search replaced this list
                 rs.answers[key] = out.answer || '';
-                box.innerHTML = rsAnswerHtml(rs.answers[key]);
+                rsFillAnswer(box, rs.answers[key]);
             } catch (e) {
                 if (rs.data !== data) return;
                 box.innerHTML = `<span style="color:#fca5a5">${escapeHtml(e && e.message && !/fetch/i.test(e.message) ? e.message : "Can't reach PrapAI.")}</span>`;
@@ -6351,6 +6599,329 @@
                 if (data.jd) $('mkJd').value = data.jd;
                 openMock();
             });
+        }
+
+        // =====================================================================
+        // TAILORED RESUME: rewrite for one job, review every change, download a PDF (or .tex)
+        // =====================================================================
+        const TAILOR_KEY = 'prapTailor.v1';   // last result + the user's choices, for this account in this browser
+        const tl = { data: null, file: null, busyTimers: [] };
+
+        function tlShow(section) {
+            ['tlSetup', 'tlBusy', 'tlReview'].forEach(id => $(id).classList.toggle('hidden', id !== section));
+            $('tlMain').scrollTop = 0;
+        }
+        function tlSetState(state, text) { $('tlState').className = `cp-state ${state}`; $('tlStateText').textContent = text; }
+        function tlToast(message, ms = 3500) {
+            const el = $('tlToast');
+            el.textContent = message;
+            el.classList.remove('hidden');
+            clearTimeout(tlToast.timer);
+            tlToast.timer = setTimeout(() => el.classList.add('hidden'), ms);
+        }
+        function tlLoad() {
+            try {
+                const v = JSON.parse(localStorage.getItem(TAILOR_KEY) || 'null');
+                if (v && v.owner && v.owner === tokenOwner() && v.data && v.data.sections) return v.data;
+            } catch (e) { }
+            return null;
+        }
+        function tlSave() {
+            const owner = tokenOwner();
+            if (!tl.data || !owner) return;
+            try { localStorage.setItem(TAILOR_KEY, JSON.stringify({ owner, data: tl.data })); } catch (e) { }
+        }
+
+        function openTailor() {
+            showView('tailor-view');
+            const saved = tlLoad();
+            if (saved) { renderTailor(saved); return; }
+            const setup = loadSetup();
+            if (!$('tlCompany').value) $('tlCompany').value = setup.company || '';
+            if (!$('tlRole').value) $('tlRole').value = setup.role || '';
+            if (!$('tlJd').value) $('tlJd').value = setup.jd || '';
+            tlResumeNote();
+            tlShow('tlSetup');
+            tlSetState('idle', 'Tailored resume');
+        }
+
+        function tlResumeNote() {
+            if (tl.file) {
+                const note = $('tlSavedResume');
+                note.classList.remove('hidden');
+                note.innerHTML = `✅ Using the resume you just scanned: <b>${escapeHtml(tl.file.name)}</b>. Choose a file below only to use a different one.`;
+            } else showSavedResumeNote('tlSavedResume', loadSetup());
+        }
+
+        // From the Resume match results: same resume file and job description, one tap
+        function tailorFromReview() {
+            tl.file = $('reviewResumeInput').files[0] || null;
+            const jd = $('reviewJdInput').value.trim();
+            try { localStorage.removeItem(TAILOR_KEY); } catch (e) { }
+            tl.data = null;
+            showView('tailor-view');
+            $('tlJd').value = jd || $('tlJd').value;
+            $('tlResume').value = '';
+            tlResumeNote();
+            tlShow('tlSetup');
+            tlSetState('idle', 'Tailored resume');
+            if (jd && (tl.file || loadSetup().resume)) runTailor();
+        }
+
+        function newTailor() {
+            if (tl.data && !confirm('Tailor for another job? This version will be removed (download the PDF first if you need it).')) return;
+            try { localStorage.removeItem(TAILOR_KEY); } catch (e) { }
+            tl.data = null;
+            tlResumeNote();
+            tlShow('tlSetup');
+            tlSetState('idle', 'Tailored resume');
+        }
+
+        async function runTailor() {
+            const jd = $('tlJd').value.trim();
+            const file = $('tlResume').files[0] || tl.file;
+            const setup = loadSetup();
+            if (jd.length < 40) { tlToast('Paste the full job description first.'); $('tlJd').focus(); return; }
+            if (!file && !setup.resume) { tlToast('Add your resume (PDF).'); return; }
+            const fd = new FormData();
+            fd.append('jd', jd);
+            fd.append('company', $('tlCompany').value.trim());
+            fd.append('role', $('tlRole').value.trim());
+            if (file) fd.append('resume_file', file); else fd.append('resume_text', setup.resume);
+            tlShow('tlBusy');
+            tlSetState('thinking', 'Tailoring…');
+            const steps = [[0, 'Reading the job description…'], [6000, 'Rewriting your bullets in the job\'s language…'],
+                [18000, 'Checking that nothing was invented…'], [30000, 'Almost done…']];
+            tl.busyTimers.forEach(clearTimeout);
+            tl.busyTimers = steps.map(([ms, text]) => setTimeout(() => { $('tlBusyText').textContent = text; }, ms));
+            try {
+                const res = await fetch('/api/resume/tailor', { method: 'POST', body: fd, headers: authHeaders() });
+                if (res.status === 401) { handleAuthFailure(); return; }
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) throw new Error(data.detail || "Couldn't tailor the resume. Please try again.");
+                // Every changed line starts as "use the new version"
+                data.summary.use = 'new';
+                data.sections.forEach(sec => sec.entries.forEach(ent => ent.bullets.forEach(b => { b.use = 'new'; })));
+                data.skills.forEach(sk => { sk.use = 'new'; });
+                tl.file = null;
+                renderTailor(data);
+            } catch (e) {
+                tlShow('tlSetup');
+                tlSetState('idle', 'Tailored resume');
+                tlToast(e && e.message && !/fetch/i.test(e.message) ? e.message : "Can't reach PrapAI. Check your connection.", 5000);
+            } finally {
+                tl.busyTimers.forEach(clearTimeout);
+            }
+        }
+
+        // ----- review screen -----
+        // key -> the object holding { original, tailored, use } ("summary", "b-<sec>-<entry>-<bullet>", "k-<skill>")
+        function tlTarget(key) {
+            const d = tl.data;
+            if (key === 'summary') return d.summary;
+            const [kind, a, b, c] = key.split('-');
+            if (kind === 'b') return d.sections[+a].entries[+b].bullets[+c];
+            if (kind === 'k') return d.skills[+a];
+            return null;
+        }
+        const tlFinal = (item) => (item.use === 'old' ? item.original : item.tailored) || item.original || item.tailored || '';
+        const tlChanged = (item) => !!item.original && item.tailored.trim() !== item.original.trim();
+
+        function tlItemHtml(key, item) {
+            const changed = tlChanged(item);
+            const old = changed ? `<div class="tl-old"><span>Original:</span> ${escapeHtml(item.original)}</div>
+                <div class="tl-row"><span>${escapeHtml(item.why || '')}</span><label><input type="checkbox"
+                    ${item.use === 'old' ? 'checked' : ''} onchange="tlUseOriginal('${key}', this.checked)"> Keep original</label></div>` : '';
+            const note = (item.note ? `<div class="tl-note">↩ ${escapeHtml(item.note)}</div>` : '')
+                + (item.warn ? `<div class="tl-note">⚠ ${escapeHtml(item.warn)}</div>` : '');
+            return `<div class="tl-item${changed ? ' changed' : ''}${item.use === 'old' ? ' use-old' : ''}" id="tl-${key}">
+                <div class="tl-new" contenteditable="true" spellcheck="true" oninput="tlEdit('${key}', this)">${escapeHtml(item.tailored || item.original)}</div>
+                ${old}${note}</div>`;
+        }
+
+        function renderTailor(data) {
+            tl.data = data;
+            const where = [data.role, data.company].filter(Boolean).join(' at ');
+            $('tlTitle').textContent = where ? `Tailored for ${where}` : 'Your tailored resume';
+            $('tlReverted').classList.toggle('hidden', !data.reverted);
+            $('tlReverted').textContent = data.reverted
+                ? `↩ ${data.reverted} rewrite${data.reverted === 1 ? ' was' : 's were'} undone automatically because they added something your resume doesn't show.` : '';
+            const gaps = data.gaps || [];
+            $('tlGapsWrap').classList.toggle('hidden', !gaps.length);
+            $('tlGaps').innerHTML = gaps.map(g => `<li><b>${escapeHtml(g.skill)}</b>${g.advice ? `: ${escapeHtml(g.advice)}` : ''}</li>`).join('');
+
+            let html = '';
+            if (data.summary && (data.summary.tailored || data.summary.original)) {
+                html += `<div class="tl-sec"><div class="tl-sec-title">Summary</div>${tlItemHtml('summary', data.summary)}</div>`;
+            }
+            data.sections.forEach((sec, si) => {
+                html += `<div class="tl-sec"><div class="tl-sec-title">${escapeHtml(sec.title)}</div>`;
+                sec.entries.forEach((ent, ei) => {
+                    const left = [ent.heading, ent.subheading].filter(Boolean).map(escapeHtml).join(' · ');
+                    const right = [ent.dates, ent.location].filter(Boolean).map(escapeHtml).join(' · ');
+                    if (left || right) html += `<div class="tl-entry-head"><b>${left}</b><span>${right}</span></div>`;
+                    html += ent.bullets.map((b, bi) => tlItemHtml(`b-${si}-${ei}-${bi}`, b)).join('');
+                });
+                html += '</div>';
+            });
+            if (data.skills.length) {
+                html += `<div class="tl-sec"><div class="tl-sec-title">Skills</div>${data.skills.map((sk, i) =>
+                    `<div class="tl-entry-head" style="margin-top:0.4rem"><b>${escapeHtml(sk.category || 'Skills')}</b></div>${tlItemHtml(`k-${i}`, sk)}`).join('')}</div>`;
+            }
+            $('tlBody').innerHTML = html;
+            tlUpdateScore();
+            tlSave();
+            tlShow('tlReview');
+            tlSetState('idle', 'Review your resume');
+        }
+
+        function tlEdit(key, el) {
+            const item = tlTarget(key);
+            if (!item) return;
+            item.tailored = el.innerText.replace(/\s+/g, ' ').trim();
+            if (item.use === 'old') { item.use = 'new'; tlRefreshItem(key); }
+            tlUpdateScore();
+            tlSave();
+        }
+
+        function tlUseOriginal(key, on) {
+            const item = tlTarget(key);
+            if (!item) return;
+            item.use = on ? 'old' : 'new';
+            $(`tl-${key}`).classList.toggle('use-old', on);
+            tlUpdateScore();
+            tlSave();
+        }
+
+        function tlRefreshItem(key) {
+            const el = $(`tl-${key}`);
+            el.classList.toggle('use-old', tlTarget(key).use === 'old');
+            const box = el.querySelector('input[type=checkbox]');
+            if (box) box.checked = tlTarget(key).use === 'old';
+        }
+
+        // Same rule as the server: whole word for short keywords ("Go", "C"), substring for longer ones
+        function tlKeywordIn(keyword, text) {
+            const k = String(keyword || '').toLowerCase().replace(/\s+/g, ' ').trim();
+            if (!k) return false;
+            if (k.length <= 3) return new RegExp(`(?<![a-z0-9+#])${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-z0-9+#])`).test(text);
+            if (text.includes(k)) return true;
+            // plural / singular, whole word ("Databases" ~ "database", but "Redis" is not "redirect")
+            return k.length >= 4 && k.endsWith('s') &&
+                new RegExp(`(?<![a-z0-9+#])${k.slice(0, -1).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![a-z0-9+#])`).test(text);
+        }
+
+        function tlFinalResume() {
+            const d = tl.data;
+            return {
+                name: d.name || '', contact: d.contact || [],
+                summary: d.summary ? tlFinal(d.summary) : '',
+                sections: d.sections.map(sec => ({ title: sec.title, entries: sec.entries.map(ent => ({
+                    heading: ent.heading, subheading: ent.subheading, location: ent.location, dates: ent.dates,
+                    bullets: ent.bullets.map(tlFinal).filter(Boolean) })) })),
+                skills: d.skills.map(sk => ({ category: sk.category, items: tlFinal(sk) })).filter(sk => sk.items),
+            };
+        }
+
+        function tlUpdateScore() {
+            const d = tl.data, keywords = d.keywords || [];
+            const r = tlFinalResume();
+            const text = [r.summary, ...r.sections.flatMap(s => s.entries.flatMap(e => [e.heading, e.subheading, ...e.bullets])),
+                ...r.skills.map(s => s.items)].join(' ').toLowerCase().replace(/\s+/g, ' ');
+            const now = keywords.filter(k => tlKeywordIn(k, text));
+            $('tlBefore').textContent = `${(d.keywords_before || []).length}/${keywords.length}`;
+            $('tlAfter').textContent = `${now.length}/${keywords.length}`;
+            $('tlKeywords').innerHTML = keywords.map(k => `<span class="${now.includes(k) ? 'on' : ''}">${escapeHtml(k)}</span>`).join('');
+        }
+
+        function tlFileName(ext) {
+            const name = (tl.data.name || 'Resume').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 40) || 'Resume';
+            const company = (tl.data.company || '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '').slice(0, 30);
+            return `${name}_Resume${company ? '_' + company : ''}.${ext}`;
+        }
+
+        function tlDownload(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+        }
+
+        async function downloadTailoredPdf() {
+            if (!tl.data) return;
+            await withBusyButton($('tlPdfBtn'), 'Making your PDF…', async () => {
+                try {
+                    const res = await fetch('/api/resume/pdf', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                        body: JSON.stringify(tlFinalResume()),
+                    });
+                    if (res.status === 401) { handleAuthFailure(); return; }
+                    if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.detail || "Couldn't make the PDF."); }
+                    tlDownload(await res.blob(), tlFileName('pdf'));
+                    tlToast('PDF downloaded');
+                } catch (e) {
+                    tlToast(e && e.message && !/fetch/i.test(e.message) ? e.message : "Can't reach PrapAI. Check your connection.", 5000);
+                }
+            });
+        }
+
+        // ----- .tex for people who want to keep editing in Overleaf -----
+        function texEscape(text) {
+            return String(text || '').replace(/\*\*/g, '')
+                .replace(/₹/g, 'Rs. ').replace(/→/g, '->').replace(/[✓✔]/g, '')
+                .replace(/\\/g, '\u0000')
+                .replace(/([&%$#_{}])/g, '\\$1')
+                .replace(/~/g, '\\textasciitilde{}').replace(/\^/g, '\\textasciicircum{}')
+                .replace(/\u0000/g, '\\textbackslash{}');
+        }
+
+        function tailoredTex() {
+            const r = tlFinalResume(), e = texEscape;
+            const out = [
+                '% Tailored with PrapAI (prapai.com). Compile with pdfLaTeX, e.g. on Overleaf.',
+                '\\documentclass[10pt,a4paper]{article}',
+                '\\usepackage[margin=0.55in]{geometry}',
+                '\\usepackage[T1]{fontenc}',
+                '\\usepackage{enumitem}',
+                '\\usepackage{titlesec}',
+                '\\usepackage[hidelinks]{hyperref}',
+                '\\pagestyle{empty}',
+                '\\setlength{\\parindent}{0pt}',
+                '\\titleformat{\\section}{\\large\\bfseries}{}{0em}{\\MakeUppercase}[\\titlerule]',
+                '\\titlespacing*{\\section}{0pt}{8pt}{4pt}',
+                '\\setlist[itemize]{leftmargin=1.3em,itemsep=1pt,topsep=2pt,parsep=0pt}',
+                '\\begin{document}',
+                '\\begin{center}',
+                `{\\LARGE\\textbf{${e(r.name)}}}\\\\[3pt]`,
+                r.contact.map(e).join(' \\quad$|$\\quad '),
+                '\\end{center}',
+            ];
+            if (r.summary) out.push('\\section{Summary}', e(r.summary));
+            r.sections.forEach(sec => {
+                out.push(`\\section{${e(sec.title)}}`);
+                sec.entries.forEach(ent => {
+                    if (ent.heading || ent.dates) out.push(`\\textbf{${e(ent.heading)}} \\hfill ${e(ent.dates)}\\\\`);
+                    if (ent.subheading || ent.location) out.push(`\\textit{${e(ent.subheading)}} \\hfill \\textit{${e(ent.location)}}`);
+                    if (ent.bullets.length) out.push('\\begin{itemize}', ...ent.bullets.map(b => `  \\item ${e(b)}`), '\\end{itemize}');
+                    out.push('\\vspace{2pt}');
+                });
+            });
+            if (r.skills.length) {
+                out.push('\\section{Skills}', r.skills.map(s => `${s.category ? `\\textbf{${e(s.category)}:} ` : ''}${e(s.items)}`).join(' \\\\\n'));
+            }
+            out.push('\\end{document}', '');
+            return out.join('\n');
+        }
+
+        function downloadTailoredTex() {
+            if (!tl.data) return;
+            tlDownload(new Blob([tailoredTex()], { type: 'application/x-tex' }), tlFileName('tex'));
+            tlToast("Downloaded. In Overleaf: New Project → Blank Project, then paste this file's contents into main.tex.", 6000);
         }
 
         function showResumeReview() {
